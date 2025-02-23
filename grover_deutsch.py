@@ -1,11 +1,10 @@
 import numpy as np
 import math
-# Import Qiskit
 from qiskit import QuantumCircuit, transpile
 from qiskit_aer import AerSimulator
 from qiskit_aer.primitives import SamplerV2
 from qiskit.visualization import plot_histogram, plot_state_city
-import qiskit.quantum_info as qi# Numero di qubit
+import qiskit.quantum_info as qi
 import matplotlib.pyplot as plt
 
 
