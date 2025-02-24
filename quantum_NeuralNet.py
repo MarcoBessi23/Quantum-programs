@@ -97,7 +97,166 @@ print(test_images_pca.shape)
 ##BUILD THE NEURAL NETWORK
 
 from qiskit.circuit import Parameter
+import qiskit.circuit.library as qulib
 
-parameter = Parameter('theta')
-qc = QuantumCircuit(4)
 
+
+def amplitude_encoding(input_vector:np.array):
+    '''
+    Amplitude encoding for a vecto of size 8, it takes |000> and 
+    the input vector and brings it in the desired encoded state.
+    '''
+    
+    norm = np.linalg.norm(input_vector)
+    quantum_state = input_vector/norm
+    
+    def calculate_theta(values):
+        """Procedure that returns the angle that for RY"""
+        norm_factor = np.linalg.norm(values)
+        return 2 * np.arctan(np.sqrt(sum(values[len(values)//2:]**2) / sum(values[:len(values)//2]**2)))
+
+    theta_1 = calculate_theta(quantum_state)      
+    theta_2 = calculate_theta(quantum_state[:4])  
+    theta_3 = calculate_theta(quantum_state[4:])  
+    theta_4 = calculate_theta(quantum_state[:2])  
+    theta_5 = calculate_theta(quantum_state[2:4])
+    theta_6 = calculate_theta(quantum_state[4:6])
+    theta_7 = calculate_theta(quantum_state[6:])
+
+
+    qc = QuantumCircuit(4)
+    # Applichiamo la decomposizione ad albero
+    qc.ry(theta_1, 1)  # separate indices [0,1,2,3] from [4,5,6,7] 
+    qc.cx(1, 2)
+    qc.ry(theta_2, 2)  # Secondo livello: separa 2 gruppi da 2 nei primi 4
+    qc.ry(theta_3, 2)  # Secondo livello: separa 2 gruppi da 2 negli ultimi 4
+    qc.cx(2, 3)
+    qc.ry(theta_4, 3)  # Terzo livello: separa i primi 2
+    qc.ry(theta_5, 3)  # Terzo livello: separa i secondi 2
+    qc.ry(theta_6, 3)  # Terzo livello: separa i terzi 2
+    qc.ry(theta_7, 3)  # Terzo livello: separa gli ultimi 2
+
+    return qc
+
+
+
+def flexible_oracle(qc, theta):
+    
+    #|000>
+    qc.rx(theta[0], 0)
+    control0 = qulib.C3XGate(3, ctrl_state='1000')    
+    qc.append(control0)
+    
+    #|001>
+    qc.rx(theta[1], 0)
+    control1 = qulib.C3XGate(3, ctrl_state='1001')    
+    qc.append(control1)
+
+    #|010>
+    qc.rx(theta[2], 0)
+    control2 = qulib.C3XGate(3, ctrl_state='1010')    
+    qc.append(control2)
+    
+    #|011>
+    qc.rx(theta[3], 0)
+    control3 = qulib.C3XGate(3, ctrl_state='1011')    
+    qc.append(control3)
+    
+    #|100>
+    qc.rx(theta[4], 0)
+    control4 = qulib.C3XGate(3, ctrl_state='1100')    
+    qc.append(control4)
+
+    #|101>
+    qc.rx(theta[5],0)
+    control5 = qulib.C3XGate(3, ctrl_state='1101')    
+    qc.append(control5)
+    
+    #|110>
+    qc.rx(theta[6],0)
+    control6 = qulib.C3XGate(3, ctrl_state='1110')    
+    qc.append(control6)
+
+    #|111>
+    qc.rx(theta[7],0)
+    control7 = qulib.C3XGate(3, ctrl_state='1111')    
+    qc.append(control7)
+
+    return qc
+
+###COSTRUCT THE MULTICONTROLL GATE
+zcir = QuantumCircuit(1)
+zcir.z(0)
+zgate = zcir.to_gate(label='z').control(3, ctrl_state= '111')
+
+
+def adaptive_diffusion(qc, psi):
+    ''' 
+    psi is the training parameter
+    '''
+    qc.h([1,2,3])
+    qc.cry(psi[0], 1, 2)
+    qc.cry(psi[1], 2, 3)
+    qc.cry(psi[2], 3, 1)
+    ###append the multicontrol Z gate
+    qc.append(zgate[0,1,2,3])
+    qc.cry(psi[3], 3, 1)
+    qc.cry(psi[4], 2, 3)
+    qc.cry(psi[5], 1, 2)
+
+    qc.h([1,2,3])
+
+    return qc
+
+
+def GQHAN(input, theta, psi):
+    qc = amplitude_encoding(input)
+    qc = flexible_oracle(qc, theta)
+    qc = adaptive_diffusion(qc, psi)
+
+    return qc
+
+from qiskit.circuit import ParameterVector
+parameters_FO = ParameterVector('theta', length = 8)
+parameters_ADO = ParameterVector('psi', length = 6)
+
+
+
+
+from qiskit import  transpile
+from qiskit_aer import AerSimulator
+from scipy.optimize import minimize
+
+def cost_function(params, input_data, labels):
+    backend = AerSimulator()
+    shots = 512
+    total_cost = 0
+
+    for i, x in enumerate(input_data):
+        print(f'image number {i}')
+        qc = GQHAN(x, params[:8], params[8:])
+        
+        qc.measure_all()  # Misura tutti i qubit
+        transpiled_qc = transpile(qc, backend)
+        result = backend.run(transpiled_qc).result()
+        counts = result.get_counts(transpiled_qc)
+
+        p1 = counts.get('1', 0) / shots  
+
+        y = labels[i]
+
+        # Loss function (Cross-Entropy)
+        total_cost += -y * np.log(p1 + 1e-9) - (1 - y) * np.log(1 - p1 + 1e-9)
+    
+    return total_cost / len(input_data)
+
+
+# Inizializzazione casuale dei parametri
+init_params = np.random.uniform(0, 2*np.pi, 14)  # 8 per theta, 6 per psi
+
+# Ottimizzazione con COBYLA
+opt_result = minimize(cost_function, init_params, args=(train_images_pca, train_labels), method='COBYLA')
+
+# Parametri ottimizzati
+trained_params = opt_result.x
+print("Parametri ottimizzati:", trained_params)
