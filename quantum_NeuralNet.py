@@ -1,44 +1,17 @@
 import numpy as np
-import math
-from qiskit import QuantumCircuit, transpile
-from qiskit.circuit.library import StatePreparation
-from qiskit_aer import AerSimulator
-from qiskit_aer.primitives import SamplerV2
-from qiskit.visualization import plot_histogram, plot_state_city
-import qiskit.quantum_info as qi 
-import matplotlib.pyplot as plt
 import torch
 from torchvision import datasets, transforms
+from torch.utils.data import DataLoader, Subset
+import matplotlib.pyplot as plt
+from qiskit import QuantumCircuit, transpile
+from qiskit.circuit.library import StatePreparation
+from qiskit_aer import AerSimulator, QasmSimulator
+from qiskit_aer.primitives import SamplerV2
+from qiskit.visualization import plot_histogram, plot_state_city
+from qiskit.circuit import ParameterVector #faster than defining 14 different parameters
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from torch.utils.data import DataLoader, Subset
-
-
-#### PAULI GATE 
-# qc.x(0) applicato al qubit 0
-#### PAULI ROTATING GATE
-# qc.rx(theta, 0) applicato al qubit 0
-#### HADAMARD GATE
-# qc.h() applicato al qubit 0
-#### CONTROLLED Y GATE
-# qc.cy(control_qubit, target_qubit)
-#### MULTI CONTROLLED Z
-# qc.mcp(pi, control_qubits, target)
-#### DISCRETE PRIMITIVE
-#
-
-
-
-
-##### AMPLITUDE ENCODER
-
-#vector = np.array([1/np.sqrt(2), 1/np.sqrt(2), 0, 0])  # Vettore da codificare (deve essere normalizzato)
-#
-#qc = QuantumCircuit(2)  # Per 4 stati servono 2 qubit
-#qc.append(StatePreparation(vector), [0, 1])
-#
-##qc.draw('mpl')
-#print(qc.draw(output='text'))
+from scipy.optimize import minimize
 
 
 
@@ -57,18 +30,18 @@ test_labels = []
 
 for img, label in train_dataset_filtered:
     if len(train_images) < 500 and label == 0:
-        train_images.append(img.view(-1).numpy())  # Appiattisci l'immagine
+        train_images.append(img.view(-1).numpy())
         train_labels.append(label)
     elif len(train_images) < 1000 and label == 1:
-        train_images.append(img.view(-1).numpy())  # Appiattisci l'immagine
+        train_images.append(img.view(-1).numpy())
         train_labels.append(label)
 
 for img, label in test_dataset_filtered:
     if len(test_images) < 50 and label == 0:
-        test_images.append(img.view(-1).numpy())  # Appiattisci l'immagine
+        test_images.append(img.view(-1).numpy())
         test_labels.append(label)
     elif len(test_images) < 100 and label == 1:
-        test_images.append(img.view(-1).numpy())  # Appiattisci l'immagine
+        test_images.append(img.view(-1).numpy())
         test_labels.append(label)
 
 train_images = np.array(train_images)
@@ -76,8 +49,8 @@ train_labels = np.array(train_labels)
 test_images = np.array(test_images)
 test_labels = np.array(test_labels)
 
-print(train_images.shape, train_labels.shape)  # Dovrebbe essere (1000, 784), (1000,)
-print(test_images.shape, test_labels.shape)    # Dovrebbe essere (100, 784), (100,)
+print(train_images.shape, train_labels.shape)  #(1000, 784), (1000,)
+print(test_images.shape, test_labels.shape)    #(100, 784), (100,)
 
 
 
@@ -93,12 +66,7 @@ test_images_pca = pca.transform(test_images_scaled)
 print(train_images_pca.shape)
 print(test_images_pca.shape)
 
-
 ##BUILD THE NEURAL NETWORK
-
-from qiskit.circuit import Parameter
-import qiskit.circuit.library as qulib
-
 
 
 def amplitude_encoding(input_vector:np.array):
@@ -111,10 +79,12 @@ def amplitude_encoding(input_vector:np.array):
     quantum_state = input_vector/norm
     
     def calculate_theta(values):
-        """Procedure that returns the angle that for RY"""
+        """Procedure that returns the angle for RY"""
         norm_factor = np.linalg.norm(values)
         return 2 * np.arctan(np.sqrt(sum(values[len(values)//2:]**2) / sum(values[:len(values)//2]**2)))
 
+
+    ###HERE I WANT TO APPLY THE ROTATION NECESSARY TO GET FROM |000> TO THE ENCODED STATE I USE THE TREE METHOD
     theta_1 = calculate_theta(quantum_state)      
     theta_2 = calculate_theta(quantum_state[:4])  
     theta_3 = calculate_theta(quantum_state[4:])  
@@ -123,64 +93,88 @@ def amplitude_encoding(input_vector:np.array):
     theta_6 = calculate_theta(quantum_state[4:6])
     theta_7 = calculate_theta(quantum_state[6:])
 
-
-    qc = QuantumCircuit(4)
-    # Applichiamo la decomposizione ad albero
-    qc.ry(theta_1, 1)  # separate indices [0,1,2,3] from [4,5,6,7] 
+    qc = QuantumCircuit(4, 3)
+    qc.ry(theta_1, 1) 
     qc.cx(1, 2)
-    qc.ry(theta_2, 2)  # Secondo livello: separa 2 gruppi da 2 nei primi 4
-    qc.ry(theta_3, 2)  # Secondo livello: separa 2 gruppi da 2 negli ultimi 4
+    qc.ry(theta_2, 2)
+    qc.ry(theta_3, 2)
     qc.cx(2, 3)
-    qc.ry(theta_4, 3)  # Terzo livello: separa i primi 2
-    qc.ry(theta_5, 3)  # Terzo livello: separa i secondi 2
-    qc.ry(theta_6, 3)  # Terzo livello: separa i terzi 2
-    qc.ry(theta_7, 3)  # Terzo livello: separa gli ultimi 2
+    qc.ry(theta_4, 3)
+    qc.ry(theta_5, 3)
+    qc.ry(theta_6, 3)
+    qc.ry(theta_7, 3)
 
     return qc
 
-
+def control_lambda(control_qubits:str):
+    xcir = QuantumCircuit(1)
+    xcir.x(0)
+    xgate = xcir.to_gate(label='X').control(3, ctrl_state= control_qubits)
+    
+    return xgate    
 
 def flexible_oracle(qc, theta):
     
     #|000>
     qc.rx(theta[0], 0)
-    control0 = qulib.C3XGate(3, ctrl_state='1000')    
-    qc.append(control0)
-    
+    qc.x(3)#put third bit in 1, same idea as for grover exercise in grover.py 
+    qc.h(3)
+    control0 = control_lambda('001')    
+    qc.append(control0, [0,1,2,3])
+    qc.h(3)
+    qc.x(3)
+
     #|001>
     qc.rx(theta[1], 0)
-    control1 = qulib.C3XGate(3, ctrl_state='1001')    
-    qc.append(control1)
+    qc.h(3)
+    qc.append(control0, [0,1,2,3])
+    qc.h(3)
 
     #|010>
     qc.rx(theta[2], 0)
-    control2 = qulib.C3XGate(3, ctrl_state='1010')    
-    qc.append(control2)
+    
+    qc.x(3)
+    qc.h(3)
+    control2 = control_lambda('101')    
+    qc.append(control2, [0,1,2,3])
+    qc.h(3)
+    qc.x(3)
     
     #|011>
     qc.rx(theta[3], 0)
-    control3 = qulib.C3XGate(3, ctrl_state='1011')    
-    qc.append(control3)
+    qc.h(3)
+    qc.append(control2, [0,1,2,3])
+    qc.h(3)
     
     #|100>
     qc.rx(theta[4], 0)
-    control4 = qulib.C3XGate(3, ctrl_state='1100')    
-    qc.append(control4)
+    qc.x(3)
+    qc.h(3)
+    control3 = control_lambda('011')    
+    qc.append(control3, [0,1,2,3])
+    qc.h(3)
+    qc.x(3)
 
     #|101>
     qc.rx(theta[5],0)
-    control5 = qulib.C3XGate(3, ctrl_state='1101')    
-    qc.append(control5)
-    
+    qc.h(3)
+    qc.append(control3, [0,1,2,3])
+    qc.h(3)
+
     #|110>
     qc.rx(theta[6],0)
-    control6 = qulib.C3XGate(3, ctrl_state='1110')    
-    qc.append(control6)
+    qc.x(3)
+    qc.h(3)
+    control4 = control_lambda('111')
+    qc.append(control4, [0,1,2,3])
+    qc.h(3)
+    qc.x(3)
 
     #|111>
     qc.rx(theta[7],0)
-    control7 = qulib.C3XGate(3, ctrl_state='1111')    
-    qc.append(control7)
+    qc.h(3)
+    qc.append(control4, [0,1,2,3])
+    qc.h(3)
 
     return qc
 
@@ -188,7 +182,6 @@ def flexible_oracle(qc, theta):
 zcir = QuantumCircuit(1)
 zcir.z(0)
 zgate = zcir.to_gate(label='z').control(3, ctrl_state= '111')
-
 
 def adaptive_diffusion(qc, psi):
     ''' 
@@ -199,7 +192,7 @@ def adaptive_diffusion(qc, psi):
     qc.cry(psi[1], 2, 3)
     qc.cry(psi[2], 3, 1)
     ###append the multicontrol Z gate
-    qc.append(zgate[0,1,2,3])
+    qc.append(zgate, [0,1,2,3])
     qc.cry(psi[3], 3, 1)
     qc.cry(psi[4], 2, 3)
     qc.cry(psi[5], 1, 2)
@@ -216,47 +209,71 @@ def GQHAN(input, theta, psi):
 
     return qc
 
-from qiskit.circuit import ParameterVector
 parameters_FO = ParameterVector('theta', length = 8)
 parameters_ADO = ParameterVector('psi', length = 6)
 
 
-
-
-from qiskit import  transpile
-from qiskit_aer import AerSimulator
-from scipy.optimize import minimize
-
 def cost_function(params, input_data, labels):
-    backend = AerSimulator()
-    shots = 512
+    
+    backend = QasmSimulator()
     total_cost = 0
 
     for i, x in enumerate(input_data):
         print(f'image number {i}')
         qc = GQHAN(x, params[:8], params[8:])
         
-        qc.measure_all()  # Misura tutti i qubit
+        qc.measure([1, 2, 3], [0, 1, 2])
         transpiled_qc = transpile(qc, backend)
         result = backend.run(transpiled_qc).result()
         counts = result.get_counts(transpiled_qc)
+        
+        ##Uncomment to get an Idea of the results
+        #print(counts)
+        #print(type(counts))
 
-        p1 = counts.get('1', 0) / shots  
-
+        shots = np.sum(np.array(list(counts.values())))
+        third_qubit = np.array([counts[key] for key in counts if key.endswith('1')])
+        p1 = np.sum(third_qubit) / shots
+        print(p1)
         y = labels[i]
-
-        # Loss function (Cross-Entropy)
-        total_cost += -y * np.log(p1 + 1e-9) - (1 - y) * np.log(1 - p1 + 1e-9)
+        
+        #Binary Cross-Entropy
+        total_cost += (y-p1)**2
     
     return total_cost / len(input_data)
 
-
-# Inizializzazione casuale dei parametri
 init_params = np.random.uniform(0, 2*np.pi, 14)  # 8 per theta, 6 per psi
+v = cost_function(init_params, train_images_pca, train_labels)
 
-# Ottimizzazione con COBYLA
-opt_result = minimize(cost_function, init_params, args=(train_images_pca, train_labels), method='COBYLA')
+
+#opt_result = minimize(cost_function, init_params, args=(train_images_pca, train_labels), method='COBYLA')
 
 # Parametri ottimizzati
-trained_params = opt_result.x
-print("Parametri ottimizzati:", trained_params)
+#trained_params = opt_result.x
+#print("Optimized Parameters:", trained_params)
+#
+#
+#def predict(params, input_data):
+#    backend = AerSimulator()
+#    shots = 512
+#    predictions = []
+#
+#    for i, x in enumerate(input_data):
+#        qc = GQHAN(x, params[:8], params[8:])
+#        qc.measure_all()
+#        
+#        transpiled_qc = transpile(qc, backend)
+#        result = backend.run(transpiled_qc).result()
+#        counts = result.get_counts(transpiled_qc)
+#
+#        p1 = counts.get('1', 0) / shots
+#
+#        #ARGMAX OF PROBABILITY
+#        prediction = 1 if p1 > 0.5 else 0
+#        predictions.append(prediction)
+#
+#    return np.array(predictions)
+#
+#test_predictions = predict(trained_params, test_images_pca)
+#accuracy = np.mean(test_predictions == test_labels)
+#print(f"Test Accuracy : {accuracy * 100:.2f}%")
