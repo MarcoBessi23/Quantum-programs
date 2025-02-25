@@ -8,11 +8,11 @@ from qiskit.circuit.library import StatePreparation
 from qiskit_aer import AerSimulator, QasmSimulator
 from qiskit_aer.primitives import SamplerV2
 from qiskit.visualization import plot_histogram, plot_state_city
-from qiskit.circuit import ParameterVector #faster than defining 14 different parameters
+from qiskit.circuit import ParameterVector, Parameter #faster than defining 14 different parameters
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from scipy.optimize import minimize
-
+from qiskit_algorithms.gradients import ParamShiftSamplerGradient
 
 
 
@@ -63,8 +63,8 @@ pca = PCA(n_components=8)
 train_images_pca = pca.fit_transform(train_images_scaled)
 test_images_pca = pca.transform(test_images_scaled)
 
-print(train_images_pca.shape)
-print(test_images_pca.shape)
+print(train_images_pca.shape)  #(1000,8)
+print(test_images_pca.shape)   #(100,8)
 
 ##BUILD THE NEURAL NETWORK
 
@@ -213,12 +213,12 @@ parameters_FO = ParameterVector('theta', length = 8)
 parameters_ADO = ParameterVector('psi', length = 6)
 
 
-def cost_function(params, input_data, labels):
+def cost_function(params, batch, labels):
     
     backend = QasmSimulator()
     total_cost = 0
-
-    for i, x in enumerate(input_data):
+    grad = np.zeros_like(params)
+    for i, x in enumerate(batch):
         print(f'image number {i}')
         qc = GQHAN(x, params[:8], params[8:])
         
@@ -233,47 +233,59 @@ def cost_function(params, input_data, labels):
 
         shots = np.sum(np.array(list(counts.values())))
         third_qubit = np.array([counts[key] for key in counts if key.endswith('1')])
-        p1 = np.sum(third_qubit) / shots
+        p1 = np.sum(third_qubit) / shots  ##probability that the third qubit is 1
         print(p1)
         y = labels[i]
-        
         #Binary Cross-Entropy
         total_cost += (y-p1)**2
     
-    return total_cost / len(input_data)
+    return total_cost / len(batch)
 
 init_params = np.random.uniform(0, 2*np.pi, 14)  # 8 per theta, 6 per psi
-v = cost_function(init_params, train_images_pca, train_labels)
+#v = cost_function(init_params, train_images_pca, train_labels)
 
 
-#opt_result = minimize(cost_function, init_params, args=(train_images_pca, train_labels), method='COBYLA')
+def nesterov_gradient_descent(train_data, train_labels, init_params, learning_rate=0.09, momentum=0.9, epochs=4, batch_size=30):
+    params = np.array(init_params)
+    velocity = np.zeros_like(params)
 
-# Parametri ottimizzati
-#trained_params = opt_result.x
-#print("Optimized Parameters:", trained_params)
-#
-#
-#def predict(params, input_data):
-#    backend = AerSimulator()
-#    shots = 512
-#    predictions = []
-#
-#    for i, x in enumerate(input_data):
-#        qc = GQHAN(x, params[:8], params[8:])
-#        qc.measure_all()
-#        
-#        transpiled_qc = transpile(qc, backend)
-#        result = backend.run(transpiled_qc).result()
-#        counts = result.get_counts(transpiled_qc)
-#
-#        p1 = counts.get('1', 0) / shots
-#
-#        #ARGMAX OF PROBABILITY
-#        prediction = 1 if p1 > 0.5 else 0
-#        predictions.append(prediction)
-#
-#    return np.array(predictions)
-#
-#test_predictions = predict(trained_params, test_images_pca)
-#accuracy = np.mean(test_predictions == test_labels)
-#print(f"Test Accuracy : {accuracy * 100:.2f}%")
+    for epoch in range(epochs):
+        # Shuffle dataset
+        indices = np.random.permutation(len(train_data))
+        train_data, train_labels = train_data[indices], train_labels[indices]
+
+        for i in range(0, len(train_data), batch_size):
+            batch = train_data[i : i + batch_size]
+            batch_labels = train_labels[i : i + batch_size]
+
+            lookahead_params = params - momentum * velocity
+            
+            gradient = np.zeros_like(params)
+            epsilon = 1e-4
+            
+            for j in range(len(params)):
+                params_plus = np.array(lookahead_params)
+                params_minus = np.array(lookahead_params)
+
+                params_plus[j] += epsilon
+                params_minus[j] -= epsilon
+
+                cost_plus = cost_function(params_plus, batch, batch_labels)
+                cost_minus = cost_function(params_minus, batch, batch_labels)
+
+                gradient[j] = (cost_plus - cost_minus) / (2 * epsilon)
+
+            velocity = momentum * velocity - learning_rate * gradient
+            params += velocity
+
+        if epoch % 10 == 0:
+            cost = cost_function(params, train_data[:batch_size], train_labels[:batch_size])
+            print(f"Epoch {epoch}, Cost: {cost}")
+
+    return params
+
+# Inizializzazione parametri
+init_params = np.random.uniform(0, 2 * np.pi, 14)  # 8 per theta, 6 per psi
+optimized_params = nesterov_gradient_descent(train_images_pca, train_labels, init_params)
+
+print("Parametri ottimizzati:", optimized_params)
