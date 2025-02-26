@@ -30,9 +30,30 @@ def cost_function(params, batch, labels):
         
     return total_cost / len(batch)
 
+def dL_df(params, batch, labels):
+    '''
+    Calculate first part of gradient    
+    '''
+    total_cost = 0
+    for i, x in enumerate(batch):
+        
+        qc = GQHAN(x)
+        z_op = Pauli("ZIII")
+        estimator = Estimator()
+        job = estimator.run([qc], [z_op], [params])
+        expectation_value = job.result().values[0]
+        print(expectation_value)
+        
+        y = labels[i]
+        #Binary Cross-Entropy
+        total_cost += (y-np.sign(expectation_value))
+        
+    return 2 ** total_cost / len(batch)
+
+
 def compute_gradient(params:np.ndarray, batch):
     '''
-    compute gradient of the quantum part of the loss
+    compute gradient of the quantum part of the loss using parameter shift
     '''
 
     estimator = Estimator()
@@ -67,15 +88,17 @@ def nesterov(train_data, train_labels, init_params, learning_rate=0.09, momentum
     
             ##COMPUTE GRADIENT OF LOSS FUNCTION WITH RESPECT TO QC PARAMETER, FIRST CONSIDER THE CHAIN RULE
             ##THEN USE PARAMETER SHIFT RULE FOR THE QUANTUM CIRCUIT
-            cost = 2*cost_function(lookahead_params, batch, batch_labels)
+            cost = dL_df(lookahead_params, batch, batch_labels)
             gradient = compute_gradient(lookahead_params, batch)
             loss_gradient = cost*gradient
 
             velocity = momentum * velocity + learning_rate * loss_gradient
             params -= velocity
-
-            print(f'loss at iteration {i} is {cost/2}')
-            loss_values.append(cost/2)
+            
+            if i%10 == 0:
+                loss = cost_function(lookahead_params, batch, batch_labels)
+                print(f'loss at iteration {i} is {loss}')
+                loss_values.append(loss)
         
     return params, loss_values
 

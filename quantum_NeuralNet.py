@@ -45,7 +45,7 @@ def control_lambda(control_qubits:str):
     xcir.x(0)
     xgate = xcir.to_gate(label='X').control(3, ctrl_state= control_qubits)
     
-    return xgate    
+    return xgate
 
 def flexible_oracle(qc):
     theta = ParameterVector('theta', length = 8)
@@ -139,7 +139,7 @@ def adaptive_diffusion(qc):
 
     return qc
 
-def GQHAN(input): #, theta, psi):
+def GQHAN(input):
     '''
     Grover inspired Quantum Attention Network from https://arxiv.org/abs/2401.14089
     '''
