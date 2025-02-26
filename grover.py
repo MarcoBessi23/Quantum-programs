@@ -1,6 +1,5 @@
 import numpy as np
 import math
-# Import Qiskit
 from qiskit import QuantumCircuit, transpile
 from qiskit_aer import AerSimulator
 from qiskit_aer.primitives import SamplerV2
