@@ -1,5 +1,6 @@
 import numpy as np
-from qiskit.circuit import ParameterVector, Parameter
+from qiskit.circuit import ParameterVector
+from qiskit.circuit.library import StatePreparation
 from qiskit import QuantumCircuit
 
 ##BUILD THE NEURAL NETWORK
@@ -47,6 +48,7 @@ def control_lambda(control_qubits:str):
     
     return xgate
 
+#https://github.com/Qiskit/textbook/blob/main/notebooks/ch-algorithms/grover.ipynb
 def flexible_oracle(qc):
     theta = ParameterVector('theta', length = 8)
 
@@ -143,7 +145,11 @@ def GQHAN(input):
     '''
     Grover inspired Quantum Attention Network from https://arxiv.org/abs/2401.14089
     '''
-    qc = amplitude_encoding(input)
+    
+    qc = QuantumCircuit(4)#,3)
+    initial_state = input/np.linalg.norm(input)
+    amplitude = StatePreparation(initial_state) ##Amplitude Encoding
+    qc.append(amplitude, [1,2,3])
     qc = flexible_oracle(qc)
     qc = adaptive_diffusion(qc)
 
