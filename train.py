@@ -142,8 +142,8 @@ test_labels[test_labels == 0] = -1
 #    return params, loss_values, acc
 
 #np.random.seed(42)
-#init_params = np.random.uniform(0, 2*np.pi, 14)
-#init_params = init_params.astype(np.float64)
+init_params = np.random.uniform(0, 2*np.pi, 14)
+init_params = init_params.astype(np.float64)
 #optimized_params, loss, acc = nesterov(train_images_pca, train_labels, init_params)
 #save_dir = os.makedirs('parameters', exist_ok=True)
 #save_path = os.path.join(os.getcwd(), save_dir, "optimized_params.npy")
@@ -154,24 +154,94 @@ from qiskit_machine_learning.circuit.library import RawFeatureVector
 from qiskit.circuit.library import StatePreparation
 from quantum_NeuralNet import ansatz
 
+
+
+from qiskit_machine_learning.optimizers import COBYLA
+from qiskit.quantum_info import SparsePauliOp
+from qiskit_machine_learning.algorithms.classifiers import NeuralNetworkClassifier
+
+observable = SparsePauliOp.from_list([("Z" + "I" * 3, 1)])
+
 qc = QuantumCircuit(4)
 amplitude = RawFeatureVector(8)
 qc.append(amplitude, [1, 2, 3])
 qc = ansatz(qc)
-print(qc.parameters)
-print(qc.draw('text'))
-x = train_images_pca[0]
-init_params = np.random.uniform(0, 2*np.pi, 14)
-init_params = init_params.astype(np.float64)
-z_op = Pauli("ZIII")
+estimator = StatevectorEstimator()
+
 estimator_qnn = EstimatorQNN(circuit= qc,
-                             #estimator = estimator,
+                             estimator = estimator,
+                             observables= observable,
                              input_params = qc.parameters[14:],
                              weight_params= qc.parameters[0:14])
 
+import matplotlib.pyplot as plt
+
+objective_func_vals = []
+
+def callback_graph(weights, obj_func_eval):
+    """Stampa e salva i valori della funzione obiettivo."""
+    iteration = len(objective_func_vals)
+    print(f"Iterazione {iteration}: {obj_func_eval}")  # Stampa ogni valore
+    objective_func_vals.append(obj_func_eval)
 
 
-x = train_images_pca[0:30]
-x = x/np.linalg.norm(x)
-p1 = estimator_qnn.forward(input_data=x, weights=init_params)
-estimator_qnn.backward(input_data = x, weights = init_params)
+classifier = NeuralNetworkClassifier(
+    neural_network = estimator_qnn ,
+    optimizer = COBYLA(maxiter=100),
+    callback = callback_graph,
+    initial_point = init_params,
+)
+objective_func_vals = []
+print(test_labels)
+print('Valore iniziale parametri')
+print(init_params)
+
+classifier.fit(train_images_pca, train_labels)
+
+plt.figure(figsize=(8, 5))
+plt.title("Objective function value against iteration")
+plt.xlabel("Iteration")
+plt.ylabel("Objective function value")
+plt.plot(range(len(objective_func_vals)), objective_func_vals, marker='o', linestyle='-')
+plt.grid()
+if not os.path.exists("results"):
+    os.makedirs("results")
+plt.savefig("results/training_results.png")
+classifier.save('GQHAN_COBYLA.model')
+print(classifier.score(test_images_pca, test_labels))
+prediction = classifier.predict(test_images_pca)
+print(len(prediction))
+print(np.sum(prediction.reshape(len(prediction))==test_labels)/len(test_labels))
+parameters = classifier.weights
+np.save('results/final_weights.npy', parameters)
+print(parameters)
+print(init_params)
+
+#loaded_classifier = NeuralNetworkClassifier.load('GQHAN_COBYLA.model')
+#loaded_classifier.warm_start = True
+#estimator2 = StatevectorEstimator()
+#loaded_classifier.neural_network.estimator = estimator2
+#loaded_classifier.optimizer = COBYLA(maxiter=100)
+#
+#loaded_classifier.fit(train_images_pca, train_labels)
+#
+#
+#plt.figure(figsize=(8, 5))
+#plt.title("Objective function value against iteration")
+#plt.xlabel("Iteration")
+#plt.ylabel("Objective function value")
+#plt.plot(range(len(objective_func_vals)), objective_func_vals, marker='o', linestyle='-')
+#plt.grid()
+#if not os.path.exists("results"):
+#    os.makedirs("results")
+#plt.savefig("results/training_results.png")
+#loaded_classifier.save('GQHAN_COBYLA.model')
+#print(loaded_classifier.score(test_images_pca, test_labels))
+#prediction = loaded_classifier.predict(test_images_pca)
+#print(len(prediction))
+#print(np.sum(prediction.reshape(len(prediction))==test_labels)/len(test_labels))
+#parameters = loaded_classifier.weights
+#np.save('results/final_weights.npy', parameters)
+#print(parameters)
+#print(init_params)
+#
