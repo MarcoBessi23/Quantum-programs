@@ -5,7 +5,7 @@ from qiskit import QuantumCircuit
 from qiskit.quantum_info import Pauli
 from qiskit.primitives import Estimator, StatevectorEstimator
 from data_preprocessing import PCA_data
-from quantum_NeuralNet import GQHAN
+from quantum_NeuralNet import GQHAN, prepare_angles, gqhan
 from qiskit_machine_learning.algorithms.classifiers import NeuralNetworkClassifier, VQC
 from qiskit_machine_learning.neural_networks import EstimatorQNN
 from qiskit_machine_learning.algorithms.classifiers import NeuralNetworkClassifier
@@ -62,9 +62,10 @@ test_labels[test_labels == 0] = -1
 #    '''
 #
 #    estimator = Estimator()
-#    z_op = Pauli("ZIII")
+#    #z_op = Pauli("ZIII")
 #    grad = np.zeros_like(params)
 #    print('Gradient calculation')
+#    z_op = SparsePauliOp.from_list([("Z" + "I" * 3, 1)])
 #    for i, x in enumerate(batch):
 #        qc = GQHAN(x)
 #        gradient = SPSAEstimatorGradient(estimator, epsilon=0.05)
@@ -76,39 +77,6 @@ test_labels[test_labels == 0] = -1
 #        #print(g)
 #        
 #    return grad/len(batch)
-
-#from qiskit_algorithms.gradients.utils import DerivativeType
-#
-#def compute_gradient(params:np.ndarray, batch, first_derivative):
-#    '''
-#    compute gradient of the quantum part of the loss using parameter shift
-#    '''
-#
-#    
-#    
-#    z_op = Pauli("ZIII")
-#    grad = np.zeros_like(params)
-#    print('Gradient calculation')
-#    for i, x in enumerate(batch):
-#        qc = GQHAN(x)
-#        estimator = StatevectorEstimator()
-#        gradient = ReverseQGT(estimator, derivative_type=DerivativeType.REAL)
-#        pse_grad_result = gradient.run(qc,[params.tolist()]).result().gradients
-#        g = np.array(pse_grad_result)[0]
-#        g *= first_derivative[i]
-#        grad += g
-#        #print('GRADIENT VALUE')
-#        #print(g)
-#        
-#    return grad/len(batch)
-#
-#
-##init_params = np.random.uniform(0, 2*np.pi, 14)
-##init_params = init_params.astype(np.float64)
-##batch = train_images_pca[0 : 30]
-##batch_labels = train_labels[0 : 30]
-#first_derivative = np.ones((30,))
-#compute_gradient(init_params, batch, first_derivative)
 
 #def nesterov(train_data, train_labels, init_params, learning_rate=0.001, momentum=0.9, epochs=4, batch_size=30):
 #
@@ -154,14 +122,11 @@ from qiskit_machine_learning.circuit.library import RawFeatureVector
 from qiskit.circuit.library import StatePreparation
 from quantum_NeuralNet import ansatz
 
-
-
-from qiskit_machine_learning.optimizers import COBYLA
+from qiskit_machine_learning.optimizers import COBYLA, GradientDescent, SciPyOptimizer
 from qiskit.quantum_info import SparsePauliOp
 from qiskit_machine_learning.algorithms.classifiers import NeuralNetworkClassifier
 
 observable = SparsePauliOp.from_list([("Z" + "I" * 3, 1)])
-
 qc = QuantumCircuit(4)
 amplitude = RawFeatureVector(8)
 qc.append(amplitude, [1, 2, 3])
@@ -187,7 +152,7 @@ def callback_graph(weights, obj_func_eval):
 
 classifier = NeuralNetworkClassifier(
     neural_network = estimator_qnn ,
-    optimizer = COBYLA(maxiter=100),
+    optimizer = COBYLA,
     callback = callback_graph,
     initial_point = init_params,
 )
@@ -244,4 +209,3 @@ print(init_params)
 #np.save('results/final_weights.npy', parameters)
 #print(parameters)
 #print(init_params)
-#

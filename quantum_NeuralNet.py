@@ -3,43 +3,49 @@ from qiskit.circuit import ParameterVector
 from qiskit.circuit.library import StatePreparation, RealAmplitudes
 from qiskit import QuantumCircuit
 from qiskit.circuit import QuantumCircuit, QuantumRegister
+from qiskit import QuantumCircuit,QuantumRegister
+from qiskit.circuit.library.standard_gates import RYGate
+import matplotlib.pyplot as plt
+
+
 ##BUILD THE NEURAL NETWORK
-def amplitude_encoding(input_vector:np.array):
-    '''
-    Amplitude encoding for a vecto of size 8, it takes |000> and 
-    the input vector and brings it in the desired encoded state.
-    '''
+
+def amplitude_encoding():
     
-    norm = np.linalg.norm(input_vector)
-    quantum_state = input_vector/norm
+    angles = ParameterVector('alpha', length=7)
+    qc = QuantumCircuit(4)
     
-    def calculate_theta(values):
-        """Procedure that returns the angle for RY"""
-        norm_factor = np.linalg.norm(values)
-        return 2 * np.arctan(np.sqrt(sum(values[len(values)//2:]**2) / sum(values[:len(values)//2]**2)))
+    qc.ry(angles[0],3)
+    qc.barrier()
 
+    qc.cry(angles[1],3,2)
 
-    ###HERE I WANT TO APPLY THE ROTATION NECESSARY TO GET FROM |000> TO THE ENCODED STATE I USE THE TREE METHOD
-    theta_1 = calculate_theta(quantum_state)      
-    theta_2 = calculate_theta(quantum_state[:4])  
-    theta_3 = calculate_theta(quantum_state[4:])  
-    theta_4 = calculate_theta(quantum_state[:2])  
-    theta_5 = calculate_theta(quantum_state[2:4])
-    theta_6 = calculate_theta(quantum_state[4:6])
-    theta_7 = calculate_theta(quantum_state[6:])
+    qc.x(3)
+    qc.cry(angles[2], 3, 2)
+    qc.x(3)
+    qc.barrier()
 
-    qc = QuantumCircuit(4, 3)
-    qc.ry(theta_1, 1) 
-    qc.cx(1, 2)
-    qc.ry(theta_2, 2)
-    qc.ry(theta_3, 2)
-    qc.cx(2, 3)
-    qc.ry(theta_4, 3)
-    qc.ry(theta_5, 3)
-    qc.ry(theta_6, 3)
-    qc.ry(theta_7, 3)
+    ccry = RYGate(angles[6]).control(2)
+    qc.append(ccry,[3,2,1])
 
+    ccry = RYGate(angles[5]).control(2)
+    qc.x(2)
+    qc.append(ccry,[3,2,1])
+    qc.x(2)
+
+    qc.x(3)
+    ccry = RYGate(angles[4]).control(2)
+    qc.append(ccry,[3,2,1])
+    ccry = RYGate(angles[3]).control(2)
+    qc.x(2)
+    qc.append(ccry,[3,2,1])
+    qc.x(2)
+    qc.x(3)
+    
     return qc
+
+
+
 
 
 def oracle_gate_000():
@@ -124,15 +130,11 @@ def oracle_gate_101():
 def oracle_gate_110():
     """Oracolo che inverte la fase di |110>"""
     oracle = QuantumCircuit(3, name="Oracle")
-    #oracle.x(0)
-    #oracle.x(1)
     oracle.x(2)
     oracle.h(2)
     oracle.ccx(0, 1, 2)
     oracle.h(2)
     oracle.x(2)
-    #oracle.x(1)
-    #oracle.x(0)
 
     return oracle.to_gate()
 
@@ -158,6 +160,9 @@ def controlled_oracle(qbit_str, oracle_gate):
     return qc.to_gate(label=f"ControlledOracle{qbit_str}]")
 
 
+
+
+
 controlled_gate_000 = controlled_oracle('000', oracle_gate_000)
 controlled_gate_001 = controlled_oracle('001', oracle_gate_001)
 controlled_gate_010 = controlled_oracle('010', oracle_gate_010)
@@ -171,8 +176,7 @@ controlled_gate_111 = controlled_oracle('111', oracle_gate_111)
 
 #https://github.com/Qiskit/textbook/blob/main/notebooks/ch-algorithms/grover.ipynb
 def flexible_oracle(qc):
-
-    theta = ParameterVector('theta', length = 8)
+    theta = ParameterVector('beta', length = 8)
 
     #|000>
     qc.rx(theta[0], 0)
@@ -212,13 +216,7 @@ def adaptive_diffusion(qc):
     ''' 
     psi is the training parameter
     '''
-
-    ### FIRST COSTRUCT THE MULTICONTROL ZGATE TO USE IN THE NETWORK
-    #zcir = QuantumCircuit(1)
-    #zcir.z(0)
-    #zgate = zcir.to_gate(label='z').control(3, ctrl_state= '111')
-
-    psi = ParameterVector('psi', length = 6)
+    psi = ParameterVector('gamma', length = 6)
     qc.h([1,2,3])
     qc.cry(psi[0], 1, 2)
     qc.cry(psi[1], 2, 3)
@@ -250,26 +248,6 @@ def GQHAN(input):
     return qc
 
 
-def ansatz(qc):
-    qc = flexible_oracle(qc)
-    qc = adaptive_diffusion(qc)
-    return qc
-
-#def GQHAN():
-#    '''
-#    Grover inspired Quantum Attention Network from https://arxiv.org/abs/2401.14089
-#    '''
-#    
-#    qc = QuantumCircuit(4) #il primo qubit serve per altre applicazioni, usare solo 1,2,3
-#    x = ParameterVector('x', length = 8)
-#    amplitude = StatePreparation(x) ##Amplitude Encoding
-#    qc.append(amplitude, [1,2,3])
-#    qc = flexible_oracle(qc)
-#    qc = adaptive_diffusion(qc)
-#
-#    return qc
-
-
 
 def diffuser(qc):
     qc.h([1, 2, 3])  # Hadamard su tutti i qubit
@@ -283,13 +261,79 @@ def diffuser(qc):
 #qc = GQHAN()
 #print(qc.draw('text'))
 
+
+
+def prepare_angles(input_data):
+    
+    #[000, 001, 010, 011, 100, 101, 110, 111]
+    #Normalize data
+    theta = []
+    input_data = input_data/np.linalg.norm(input_data)
+    
+    prob_0_q2 = np.linalg.norm(input_data[0:4])
+    theta_0 = 2*np.arccos(prob_0_q2)
+    theta.append(theta_0)
+    
+    prob_10_q2q1 = np.linalg.norm(input_data[4:6])/np.linalg.norm(input_data[4:])
+    theta_1 = 2*np.arccos(prob_10_q2q1)
+    theta.append(theta_1)
+    
+    prob_00_q2q1 = np.linalg.norm(input_data[0:2])/np.linalg.norm(input_data[:4])
+    theta_2 = 2*np.arccos(prob_00_q2q1)
+    theta.append(theta_2)
+
+    prob_000_q2q1q0 = np.linalg.norm(input_data[0])/np.linalg.norm(input_data[0:2])
+    theta_3 = 2*np.arccos(prob_000_q2q1q0)
+    theta.append(theta_3)
+
+    prob_010_q2q1q0 = np.linalg.norm(input_data[2])/np.linalg.norm(input_data[2:4])
+    theta_4 = 2*np.arccos(prob_010_q2q1q0)
+    theta.append(theta_4)
+
+    prob_100_q2q1q0 = np.linalg.norm(input_data[4])/np.linalg.norm(input_data[4:6])
+    theta_5 = 2*np.arccos(prob_100_q2q1q0)
+    theta.append(theta_5)
+
+    prob_110_q2q1q0 = np.linalg.norm(input_data[6])/np.linalg.norm(input_data[6:8])
+    theta_6 = 2*np.arccos(prob_110_q2q1q0)
+    theta.append(theta_6)
+
+    return theta
+
+
+def gqhan():
+    qc = amplitude_encoding()
+    qc.barrier()
+    qc = flexible_oracle(qc)
+    qc = adaptive_diffusion(qc)
+    return qc
+
+
+def ansatz(qc):
+    qc = flexible_oracle(qc)
+    qc = adaptive_diffusion(qc)
+    return qc
+
+
 #qc_test = QuantumCircuit(4)  # Deve avere il numero corretto di qubit
 #qc_test.x(0)
 #qc_test.h([1,2,3])
 #qc_test.append(controlled_gate_111, [0, 1, 2, 3])
 #diffuser(qc_test)
 #qc_test.measure_all()
+
+#from data_preprocessing import PCA_data
+#train_images_pca, test_images_pca, train_labels, test_labels = PCA_data()
 #
+#
+#initial_state = train_images_pca[0]
+#angles = prepare_angles(initial_state)
+#qc_test = amplitude_encoding()
+#qc_test = qc_test.assign_parameters(angles)
+#print(initial_state)
+#print(np.dot(initial_state,initial_state))
+#print(qc_test.draw('text'))
+#qc_test.measure_all()
 #from qiskit import QuantumCircuit, transpile
 #from qiskit_aer import AerSimulator
 ## Transpile for simulator
