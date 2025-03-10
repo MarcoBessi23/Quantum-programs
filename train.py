@@ -5,7 +5,7 @@ from qiskit import QuantumCircuit
 from qiskit.quantum_info import Pauli
 from qiskit.primitives import Estimator, StatevectorEstimator
 from data_preprocessing import PCA_data
-from quantum_NeuralNet import GQHAN, prepare_angles, gqhan
+from quantum_NeuralNet import GQHAN, prepare_angles, gqhan, ansatz, amplitude_encoding
 from qiskit_machine_learning.algorithms.classifiers import NeuralNetworkClassifier, VQC
 from qiskit_machine_learning.neural_networks import EstimatorQNN
 from qiskit_machine_learning.algorithms.classifiers import NeuralNetworkClassifier
@@ -122,66 +122,66 @@ from qiskit_machine_learning.circuit.library import RawFeatureVector
 from qiskit.circuit.library import StatePreparation
 from quantum_NeuralNet import ansatz
 
-from qiskit_machine_learning.optimizers import COBYLA, GradientDescent, SciPyOptimizer
+from qiskit_machine_learning.optimizers import COBYLA,SPSA, SciPyOptimizer
 from qiskit.quantum_info import SparsePauliOp
-from qiskit_machine_learning.algorithms.classifiers import NeuralNetworkClassifier
+from qiskit_machine_learning.algorithms.classifiers import NeuralNetworkClassifier, VQC
 
-observable = SparsePauliOp.from_list([("Z" + "I" * 3, 1)])
-qc = QuantumCircuit(4)
-amplitude = RawFeatureVector(8)
-qc.append(amplitude, [1, 2, 3])
-qc = ansatz(qc)
-estimator = StatevectorEstimator()
-
-estimator_qnn = EstimatorQNN(circuit= qc,
-                             estimator = estimator,
-                             observables= observable,
-                             input_params = qc.parameters[14:],
-                             weight_params= qc.parameters[0:14])
-
-import matplotlib.pyplot as plt
-
-objective_func_vals = []
-
-def callback_graph(weights, obj_func_eval):
-    """Stampa e salva i valori della funzione obiettivo."""
-    iteration = len(objective_func_vals)
-    print(f"Iterazione {iteration}: {obj_func_eval}")  # Stampa ogni valore
-    objective_func_vals.append(obj_func_eval)
-
-
-classifier = NeuralNetworkClassifier(
-    neural_network = estimator_qnn ,
-    optimizer = COBYLA,
-    callback = callback_graph,
-    initial_point = init_params,
-)
-objective_func_vals = []
-print(test_labels)
-print('Valore iniziale parametri')
-print(init_params)
-
-classifier.fit(train_images_pca, train_labels)
-
-plt.figure(figsize=(8, 5))
-plt.title("Objective function value against iteration")
-plt.xlabel("Iteration")
-plt.ylabel("Objective function value")
-plt.plot(range(len(objective_func_vals)), objective_func_vals, marker='o', linestyle='-')
-plt.grid()
-if not os.path.exists("results"):
-    os.makedirs("results")
-plt.savefig("results/training_results.png")
-classifier.save('GQHAN_COBYLA.model')
-print(classifier.score(test_images_pca, test_labels))
-prediction = classifier.predict(test_images_pca)
-print(len(prediction))
-print(np.sum(prediction.reshape(len(prediction))==test_labels)/len(test_labels))
-parameters = classifier.weights
-np.save('results/final_weights.npy', parameters)
-print(parameters)
-print(init_params)
-
+#observable = SparsePauliOp.from_list([("Z" + "I" * 3, 1)])
+#qc = QuantumCircuit(4)
+#amplitude = RawFeatureVector(8)
+#qc.append(amplitude, [1, 2, 3])
+#qc = ansatz(qc)
+#estimator = StatevectorEstimator()
+#
+#estimator_qnn = EstimatorQNN(circuit= qc,
+#                             estimator = estimator,
+#                             observables= observable,
+#                             input_params = qc.parameters[14:],
+#                             weight_params= qc.parameters[0:14])
+#
+#import matplotlib.pyplot as plt
+#
+#objective_func_vals = []
+#
+#def callback_graph(weights, obj_func_eval):
+#    """Stampa e salva i valori della funzione obiettivo."""
+#    iteration = len(objective_func_vals)
+#    print(f"Iterazione {iteration}: {obj_func_eval}")  # Stampa ogni valore
+#    objective_func_vals.append(obj_func_eval)
+#
+#
+#classifier = NeuralNetworkClassifier(
+#    neural_network = estimator_qnn ,
+#    optimizer = COBYLA,
+#    callback = callback_graph,
+#    initial_point = init_params,
+#)
+#objective_func_vals = []
+#print(test_labels)
+#print('Valore iniziale parametri')
+#print(init_params)
+#
+#classifier.fit(train_images_pca, train_labels)
+#
+#plt.figure(figsize=(8, 5))
+#plt.title("Objective function value against iteration")
+#plt.xlabel("Iteration")
+#plt.ylabel("Objective function value")
+#plt.plot(range(len(objective_func_vals)), objective_func_vals, marker='o', linestyle='-')
+#plt.grid()
+#if not os.path.exists("results"):
+#    os.makedirs("results")
+#plt.savefig("results/training_results.png")
+#classifier.save('GQHAN_COBYLA.model')
+#print(classifier.score(test_images_pca, test_labels))
+#prediction = classifier.predict(test_images_pca)
+#print(len(prediction))
+#print(np.sum(prediction.reshape(len(prediction))==test_labels)/len(test_labels))
+#parameters = classifier.weights
+#np.save('results/final_weights.npy', parameters)
+#print(parameters)
+#print(init_params)
+#
 #loaded_classifier = NeuralNetworkClassifier.load('GQHAN_COBYLA.model')
 #loaded_classifier.warm_start = True
 #estimator2 = StatevectorEstimator()
@@ -209,3 +209,31 @@ print(init_params)
 #np.save('results/final_weights.npy', parameters)
 #print(parameters)
 #print(init_params)
+
+train_angles = np.array([prepare_angles(img) for img in train_images_pca])
+print(np.shape(train_angles))
+test_angles = np.array([prepare_angles(img) for img in test_images_pca])
+print('FINE PREPROCESSING ANGOLI')
+
+from qiskit.primitives import StatevectorEstimator as Estimator
+from qiskit.primitives import StatevectorSampler as Sampler
+estimator = Estimator()
+sampler = Sampler()
+
+
+def cost_func_vqe(params, ansatz, hamiltonian, estimator):
+    """Return estimate of energy from estimator
+
+    Parameters:
+        params (ndarray): Array of ansatz parameters
+        ansatz (QuantumCircuit): Parameterized ansatz circuit
+        hamiltonian (SparsePauliOp): Operator representation of Hamiltonian
+        estimator (Estimator): Estimator primitive instance
+
+    Returns:
+        float: Energy estimate
+    """
+    pub = (ansatz, hamiltonian, params)
+    cost = estimator.run([pub]).result()[0].data.evs
+
+    return cost

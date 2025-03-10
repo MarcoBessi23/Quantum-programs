@@ -25,13 +25,13 @@ test_angles = np.array([prepare_angles(img) for img in test_images_pca])
 print('FINE PREPROCESSING ANGOLI')
 
 observable = SparsePauliOp.from_list([("Z" + "I" * 3, 1)])
+#observable = Pauli('ZIII')
 qc = gqhan()
 estimator = Estimator()
-print(qc.parameters[:7])
 
 estimator_qnn = EstimatorQNN(circuit= qc.decompose(),
                              estimator = estimator,
-                             gradient= SPSAEstimatorGradient(estimator),
+                             gradient= ParamShiftEstimatorGradient(estimator),
                              observables= observable,
                              input_params = qc.parameters[:7],
                              weight_params= qc.parameters[7:])
@@ -53,25 +53,21 @@ class Classifier():
 
         y_pred = self.estimator.forward(x, w)
         y_pred = y_pred.reshape(np.shape(y))
+        #y_pred = np.sign(y_pred)
         l = np.mean((y_pred-y)**2)
-        print('SHAPE l')
-        print(np.shape(y_pred))
         self.derivative_mse.append((2 / len(y)) * (y_pred - y))
         return l     
 
     def compute_gradient(self, x, w):
+
         _, g = self.estimator.backward(x, w)
-        v = np.array(self.derivative_mse).ravel()
-        print(np.shape(v))
-        
         gradient = g.squeeze(axis=1) #NEEDED BECAUSE BACKWARD GRADIENT HAS SHAPE (BATCH, 1, NUM_PARAMETERS) (?)
-        print(gradient)
-        gradient *= np.array(self.derivative_mse).ravel()
+        gradient *= np.array(self.derivative_mse).transpose() #NEEDED BECAUSE derivative_mse HAS SHAPE (1,30)
         self.derivative_mse = []
         
-        return gradient
+        return np.sum(gradient)
 
-    def train_model_nesterov(self, momentum= 0.9, learning_rate = 0.09):
+    def train_model_nesterov(self, momentum= 0.9, learning_rate = 0.1):
         velocity = np.zeros_like(self.parameters)
         w = np.copy(self.parameters)
 
@@ -79,9 +75,7 @@ class Classifier():
             print(f'EPOCH NUMBER {epoch}')
             indices = np.random.permutation(len(self.X_train))
             train_data, train_labels = self.X_train[indices], self.y_train[indices]
-            
             for i in range(0, len(train_data), self.batch_size):
-                print(i)
                 batch = train_data[i : i + self.batch_size]
                 batch_labels = train_labels[i : i + self.batch_size]            
                 lookahead_params = w - momentum * velocity
@@ -90,7 +84,9 @@ class Classifier():
                 velocity = momentum * velocity + learning_rate * gradient
                 w -= velocity
                 self.loss_values.append(loss)
-                print(f'loss at iteration {i}: {loss}')
+                print(f'loss at iteration {len(self.loss_values)}: {loss}')
+                if len(self.loss_values) == 30:
+                    break
         
         self.parameters = np.copy(w)
 
@@ -100,7 +96,7 @@ class Classifier():
         plt.title("Objective function value against iteration")
         plt.xlabel("Iteration")
         plt.ylabel("Objective function value")
-        plt.plot( self.loss_values, marker='o', linestyle='-')
+        plt.plot(self.loss_values, marker='o', linestyle='-')
         plt.grid()
         plt.savefig(path)
 
@@ -118,5 +114,13 @@ path_train_loss = "results/training_results_nesterov.png"
 gqhan_classifier = Classifier(estimator_qnn, init_params, train_angles, train_labels, epochs = 4, batch_size= 30)
 gqhan_classifier.train_model_nesterov()
 gqhan_classifier.plot_training_loss(path_train_loss)
-accuracy = gqhan_classifier.score
+accuracy = gqhan_classifier.score(test_angles, test_labels)
 print(accuracy)
+
+#v = np.ones((5,4))
+#u = np.array([1,2,3,4,5])
+#u = u.reshape(5,1)
+#a = v*u
+#print(v)
+#print(u)
+#print(a)

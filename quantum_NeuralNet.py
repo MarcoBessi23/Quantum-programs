@@ -49,8 +49,8 @@ def amplitude_encoding():
 
 
 def oracle_gate_000():
-    """Oracolo che inverte la fase di |000>"""
-    oracle = QuantumCircuit(3, name="Oracle")
+    """Oracolo che inverte la fase di q1q2q3 =|000>"""
+    oracle = QuantumCircuit(3, name="Oracle000")
     oracle.x(0)
     oracle.x(1)
     oracle.x(2)
@@ -65,8 +65,8 @@ def oracle_gate_000():
 
 
 def oracle_gate_001():
-    """Oracolo che inverte la fase di |001>"""
-    oracle = QuantumCircuit(3, name="Oracle")
+    """Oracolo che inverte la fase di q1q2q3 =|001>"""
+    oracle = QuantumCircuit(3, name="Oracle001")
     oracle.x(0)
     oracle.x(1)
     oracle.h(2)
@@ -79,8 +79,8 @@ def oracle_gate_001():
 
 
 def oracle_gate_010():
-    """Oracolo che inverte la fase di |010>"""
-    oracle = QuantumCircuit(3, name="Oracle")
+    """Oracolo che inverte la fase di q1q2q3 =|010>"""
+    oracle = QuantumCircuit(3, name="Oracle010")
     oracle.x(0)
     oracle.x(2)
     oracle.h(2)
@@ -92,8 +92,8 @@ def oracle_gate_010():
     return oracle.to_gate()
 
 def oracle_gate_011():
-    """Oracolo che inverte la fase di |011>"""
-    oracle = QuantumCircuit(3, name="Oracle")
+    """Oracolo che inverte la fase di q1q2q3 =|011>"""
+    oracle = QuantumCircuit(3, name="Oracle011")
     oracle.x(0)
     oracle.h(2)
     oracle.ccx(0, 1, 2)
@@ -104,8 +104,8 @@ def oracle_gate_011():
 
 
 def oracle_gate_100():
-    """Oracolo che inverte la fase di |100>"""
-    oracle = QuantumCircuit(3, name="Oracle")
+    """Oracolo che inverte la fase di q1q2q3 =|100>"""
+    oracle = QuantumCircuit(3, name="Oracle100")
     oracle.x(1)
     oracle.x(2)
     oracle.h(2)
@@ -117,8 +117,8 @@ def oracle_gate_100():
     return oracle.to_gate()
 
 def oracle_gate_101():
-    """Oracolo che inverte la fase di |101>"""
-    oracle = QuantumCircuit(3, name="Oracle")
+    """Oracolo che inverte la fase di q1q2q3 =|101>"""
+    oracle = QuantumCircuit(3, name="Oracle101")
     oracle.x(1)
     oracle.h(2)
     oracle.ccx(0, 1, 2)
@@ -128,8 +128,8 @@ def oracle_gate_101():
     return oracle.to_gate()
 
 def oracle_gate_110():
-    """Oracolo che inverte la fase di |110>"""
-    oracle = QuantumCircuit(3, name="Oracle")
+    """Oracolo che inverte la fase di q1q2q3 = |110>"""
+    oracle = QuantumCircuit(3, name="Oracle110")
     oracle.x(2)
     oracle.h(2)
     oracle.ccx(0, 1, 2)
@@ -139,8 +139,8 @@ def oracle_gate_110():
     return oracle.to_gate()
 
 def oracle_gate_111():
-    """Oracolo che inverte la fase di |111>"""
-    oracle = QuantumCircuit(3, name="Oracle")
+    """Oracolo che inverte la fase di q1q2q3 =|111>"""
+    oracle = QuantumCircuit(3, name="Oracle111")
     oracle.h(2)
     oracle.ccx(0, 1, 2)
     oracle.h(2)
@@ -309,19 +309,20 @@ def gqhan():
     return qc
 
 
-def ansatz(qc):
+def ansatz(num_qubits = 4):
+    qc = QuantumCircuit(num_qubits)
     qc = flexible_oracle(qc)
     qc = adaptive_diffusion(qc)
     return qc
 
-
+#
 #qc_test = QuantumCircuit(4)  # Deve avere il numero corretto di qubit
 #qc_test.x(0)
 #qc_test.h([1,2,3])
-#qc_test.append(controlled_gate_111, [0, 1, 2, 3])
+#qc_test.append(controlled_gate_011, [0, 1, 2, 3])
 #diffuser(qc_test)
 #qc_test.measure_all()
-
+#
 #from data_preprocessing import PCA_data
 #train_images_pca, test_images_pca, train_labels, test_labels = PCA_data()
 #
@@ -333,7 +334,7 @@ def ansatz(qc):
 #print(initial_state)
 #print(np.dot(initial_state,initial_state))
 #print(qc_test.draw('text'))
-#qc_test.measure_all()
+
 #from qiskit import QuantumCircuit, transpile
 #from qiskit_aer import AerSimulator
 ## Transpile for simulator
@@ -348,3 +349,4 @@ def ansatz(qc):
 #from qiskit.visualization import plot_histogram
 #plot_histogram(counts)
 #plt.show()
+#
