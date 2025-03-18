@@ -2,19 +2,19 @@ import os
 import numpy as np
 
 from data_preprocessing import PCA_data
-from quantum_NeuralNet import prepare_angles, gqhan
+from quantum_NeuralNet import prepare_angles, gqhan, small_gqhan
 from qiskit.primitives import StatevectorEstimator as Estimator
 from qiskit_machine_learning.algorithms.classifiers import NeuralNetworkClassifier, VQC
 from qiskit_machine_learning.neural_networks import EstimatorQNN
 from qiskit_machine_learning.algorithms.classifiers import NeuralNetworkClassifier
-from qiskit_machine_learning.gradients import ParamShiftEstimatorGradient, SPSAEstimatorGradient
+from qiskit_machine_learning.gradients import ParamShiftEstimatorGradient, SPSAEstimatorGradient, LinCombEstimatorGradient
 from qiskit_machine_learning.optimizers import COBYLA, SPSA, QNSPSA, SciPyOptimizer, ADAM
 from qiskit.quantum_info import SparsePauliOp, Pauli
 import matplotlib.pyplot as plt
 
 
 
-init_params = np.random.uniform(0, 2*np.pi, 14)
+init_params = np.random.uniform(0, 2*np.pi, 8) #14)
 init_params = init_params.astype(np.float64)
 train_images_pca, test_images_pca, train_labels, test_labels = PCA_data()
 train_labels[train_labels == 0] = -1
@@ -27,14 +27,19 @@ print('FINE PREPROCESSING ANGOLI')
 observable = SparsePauliOp.from_list([("Z" + "I" * 3, 1)])
 #observable = Pauli('ZIII')
 qc = gqhan()
+#qc = small_gqhan()
 estimator = Estimator()
 
-estimator_qnn = EstimatorQNN(circuit= qc.decompose(),
+estimator_qnn = EstimatorQNN(circuit = qc.decompose(),
                              estimator = estimator,
-                             gradient= ParamShiftEstimatorGradient(estimator),
-                             observables= observable,
+                             gradient = ParamShiftEstimatorGradient(estimator),
+                             #gradient = LinCombEstimatorGradient(estimator),
+                             #gradient = SPSAEstimatorGradient(estimator),
+                             
+                             observables = observable,
                              input_params = qc.parameters[:7],
-                             weight_params= qc.parameters[7:])
+                             weight_params= qc.parameters[7:]
+                             )
 
 
 class Classifier():
@@ -49,11 +54,10 @@ class Classifier():
         self.parameters = initial_parameters
         self.batch_size = batch_size 
 
-    def loss_fn(self, x,y, w):
+    def loss_fn(self, x, y, w):
 
         y_pred = self.estimator.forward(x, w)
         y_pred = y_pred.reshape(np.shape(y))
-        #y_pred = np.sign(y_pred)
         l = np.mean((y_pred-y)**2)
         self.derivative_mse.append((2 / len(y)) * (y_pred - y))
         return l     
@@ -67,7 +71,7 @@ class Classifier():
         
         return np.sum(gradient)
 
-    def train_model_nesterov(self, momentum= 0.9, learning_rate = 0.1):
+    def train_model_nesterov(self, momentum= 0.9, learning_rate = 0.09):
         velocity = np.zeros_like(self.parameters)
         w = np.copy(self.parameters)
 
@@ -85,10 +89,14 @@ class Classifier():
                 w -= velocity
                 self.loss_values.append(loss)
                 print(f'loss at iteration {len(self.loss_values)}: {loss}')
-                if len(self.loss_values) == 30:
-                    break
-        
+
         self.parameters = np.copy(w)
+
+    def train_COBYLA(self):
+        
+        def objective_fun(self):
+            
+            pass
 
     def plot_training_loss(self, path):
         
@@ -102,25 +110,18 @@ class Classifier():
 
     def score(self, x_test, y_test):
         y_pred = self.estimator.forward(x_test, self.parameters)
+        y_pred = y_pred.reshape(np.shape(y_test))
         prediction = np.sign(y_pred)
         return np.sum(prediction == y_test)/len(y_test)
 
 
 if not os.path.exists("results"):
             os.makedirs("results")
-path_train_loss = "results/training_results_nesterov.png"
+path_train_loss = "results/training_results_nesterov_small_8_params.png"
 
 
-gqhan_classifier = Classifier(estimator_qnn, init_params, train_angles, train_labels, epochs = 4, batch_size= 30)
+gqhan_classifier = Classifier(estimator_qnn, init_params, train_angles, train_labels, epochs = 3, batch_size= 30)
 gqhan_classifier.train_model_nesterov()
 gqhan_classifier.plot_training_loss(path_train_loss)
 accuracy = gqhan_classifier.score(test_angles, test_labels)
 print(accuracy)
-
-#v = np.ones((5,4))
-#u = np.array([1,2,3,4,5])
-#u = u.reshape(5,1)
-#a = v*u
-#print(v)
-#print(u)
-#print(a)

@@ -264,7 +264,7 @@ def diffuser(qc):
 
 
 def prepare_angles(input_data):
-    
+    ##Function needed to prepare the angles
     #[000, 001, 010, 011, 100, 101, 110, 111]
     #Normalize data
     theta = []
@@ -315,38 +315,86 @@ def ansatz(num_qubits = 4):
     qc = adaptive_diffusion(qc)
     return qc
 
-#
-#qc_test = QuantumCircuit(4)  # Deve avere il numero corretto di qubit
-#qc_test.x(0)
-#qc_test.h([1,2,3])
-#qc_test.append(controlled_gate_011, [0, 1, 2, 3])
-#diffuser(qc_test)
-#qc_test.measure_all()
-#
-#from data_preprocessing import PCA_data
-#train_images_pca, test_images_pca, train_labels, test_labels = PCA_data()
-#
-#
-#initial_state = train_images_pca[0]
-#angles = prepare_angles(initial_state)
-#qc_test = amplitude_encoding()
-#qc_test = qc_test.assign_parameters(angles)
-#print(initial_state)
-#print(np.dot(initial_state,initial_state))
-#print(qc_test.draw('text'))
 
-#from qiskit import QuantumCircuit, transpile
-#from qiskit_aer import AerSimulator
-## Transpile for simulator
-#simulator = AerSimulator()
-#circ = transpile(qc_test, simulator)
+#def small_flexible_oracle(qc):
+#    theta = ParameterVector('beta', length = 8)
 #
-### Run and get counts
-#result = simulator.run(circ).result()
-#counts = result.get_counts(circ)
+#    #|000>
+#    qc.rx(theta[0], 0)
+#    qc.append(controlled_gate_000, [0,1,2,3])
 #
-#import matplotlib.pyplot as plt
-#from qiskit.visualization import plot_histogram
-#plot_histogram(counts)
-#plt.show()
+#    #|001>
+#    #qc.rx(theta[1], 0)
+#    qc.append(controlled_gate_001, [0,1,2,3])
 #
+#    #|010>
+#    #qc.rx(theta[2], 0)
+#    qc.append(controlled_gate_010, [0,1,2,3])
+#    
+#    #|011>
+#    #qc.rx(theta[3], 0)
+#    qc.append(controlled_gate_011, [0,1,2,3])
+#
+#    #|100>
+#    qc.rx(theta[4], 0)
+#    qc.append(controlled_gate_100, [0,1,2,3])
+#    
+#    #|101>
+#    #qc.rx(theta[5],0)
+#    qc.append(controlled_gate_101, [0,1,2,3])
+#    
+#    #|110>
+#    #qc.rx(theta[6],0)
+#    qc.append(controlled_gate_110, [0,1,2,3])
+#    
+#    #|111>
+#    #qc.rx(theta[7],0)
+#    qc.append(controlled_gate_111, [0,1,2,3])
+#
+#    return qc
+#
+#
+#def small_gqhan():
+#    qc = amplitude_encoding()
+#    qc.barrier()
+#    qc = small_flexible_oracle(qc)
+#    qc = adaptive_diffusion(qc)
+#    return qc
+#
+#
+#
+#####DON'T UNCOMMENT USED ONLY TO TEST THE CODE
+##qc_test = QuantumCircuit(4)  # Deve avere il numero corretto di qubit
+##qc_test.x(0)
+##qc_test.h([1,2,3])
+##qc_test.append(controlled_gate_011, [0, 1, 2, 3])
+##diffuser(qc_test)
+##qc_test.measure_all()
+##
+##from data_preprocessing import PCA_data
+##train_images_pca, test_images_pca, train_labels, test_labels = PCA_data()
+##
+##
+##initial_state = train_images_pca[0]
+##angles = prepare_angles(initial_state)
+##qc_test = amplitude_encoding()
+##qc_test = qc_test.assign_parameters(angles)
+##print(initial_state)
+##print(np.dot(initial_state,initial_state))
+##print(qc_test.draw('text'))
+#
+##from qiskit import QuantumCircuit, transpile
+##from qiskit_aer import AerSimulator
+### Transpile for simulator
+##simulator = AerSimulator()
+##circ = transpile(qc_test, simulator)
+##
+#### Run and get counts
+##result = simulator.run(circ).result()
+##counts = result.get_counts(circ)
+##
+##import matplotlib.pyplot as plt
+##from qiskit.visualization import plot_histogram
+##plot_histogram(counts)
+##plt.show()
+##

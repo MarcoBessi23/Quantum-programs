@@ -57,17 +57,17 @@ def PCA_data(save_path='./Data/pca_Fashion.npz'):
 
     count_0, count_1 = 0, 0
     for img, label in test_dataset_filtered:
-        if count_0 < 50 and label == 0:
+        if count_0 < 100 and label == 0:
             test_images.append(img.view(-1).numpy())
             test_labels.append(label)
             count_0 += 1
-        elif count_1 < 50 and label == 1:
+        elif count_1 < 100 and label == 1:
             test_images.append(img.view(-1).numpy())
             test_labels.append(label)
             count_1 += 1
 
-        # Se abbiamo raggiunto 500 esempi per entrambe le classi, interrompiamo il loop
-        if count_0 >= 50 and count_1 >= 50:
+        # Interrupt the loop if 100 examples for each class is reached
+        if count_0 >= 100 and count_1 >= 100:
             break
 
     train_images = np.array(train_images)

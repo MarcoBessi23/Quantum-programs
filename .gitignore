@@ -3,3 +3,4 @@ data/
 Data/
 parametershift.py
 train_schratch.py
+__pycache__/
