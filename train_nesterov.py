@@ -2,7 +2,7 @@ import os
 import numpy as np
 
 from data_preprocessing import PCA_data
-from quantum_NeuralNet import prepare_angles, gqhan, small_gqhan
+from quantum_NeuralNet import prepare_angles, gqhan
 from qiskit.primitives import StatevectorEstimator as Estimator
 from qiskit_machine_learning.algorithms.classifiers import NeuralNetworkClassifier, VQC
 from qiskit_machine_learning.neural_networks import EstimatorQNN
@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 
 
-init_params = np.random.uniform(0, 2*np.pi, 8) #14)
+init_params = np.random.uniform(-np.pi, np.pi, 14)
 init_params = init_params.astype(np.float64)
 train_images_pca, test_images_pca, train_labels, test_labels = PCA_data()
 train_labels[train_labels == 0] = -1
@@ -27,10 +27,10 @@ print('FINE PREPROCESSING ANGOLI')
 observable = SparsePauliOp.from_list([("Z" + "I" * 3, 1)])
 #observable = Pauli('ZIII')
 qc = gqhan()
-#qc = small_gqhan()
+
 estimator = Estimator()
 
-estimator_qnn = EstimatorQNN(circuit = qc.decompose(),
+estimator_qnn = EstimatorQNN(circuit = qc,
                              estimator = estimator,
                              gradient = ParamShiftEstimatorGradient(estimator),
                              #gradient = LinCombEstimatorGradient(estimator),
@@ -49,7 +49,7 @@ class Classifier():
         self.estimator = estimator
         self.X_train = train_data
         self.y_train = train_labels
-        self.epochs = epochs
+        self.epochs  = epochs
         self.loss_values = []
         self.parameters = initial_parameters
         self.batch_size = batch_size 
@@ -92,12 +92,6 @@ class Classifier():
 
         self.parameters = np.copy(w)
 
-    def train_COBYLA(self):
-        
-        def objective_fun(self):
-            
-            pass
-
     def plot_training_loss(self, path):
         
         plt.figure(figsize=(8, 5))
@@ -117,7 +111,7 @@ class Classifier():
 
 if not os.path.exists("results"):
             os.makedirs("results")
-path_train_loss = "results/training_results_nesterov_small_8_params.png"
+path_train_loss = "results/training_results_nesterov.png"
 
 
 gqhan_classifier = Classifier(estimator_qnn, init_params, train_angles, train_labels, epochs = 3, batch_size= 30)

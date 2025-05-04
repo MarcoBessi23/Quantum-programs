@@ -1,6 +1,6 @@
 import numpy as np
 from qiskit.circuit import ParameterVector
-from qiskit.circuit.library import StatePreparation, RealAmplitudes
+from qiskit.circuit.library import StatePreparation
 from qiskit import QuantumCircuit
 from qiskit.circuit import QuantumCircuit, QuantumRegister
 from qiskit import QuantumCircuit,QuantumRegister
@@ -25,18 +25,18 @@ def amplitude_encoding():
     qc.x(3)
     qc.barrier()
 
-    ccry = RYGate(angles[6]).control(2)
+    ccry = RYGate(angles[6]).control(2)#.decompose()
     qc.append(ccry,[3,2,1])
 
-    ccry = RYGate(angles[5]).control(2)
+    ccry = RYGate(angles[5]).control(2)#.decompose()
     qc.x(2)
     qc.append(ccry,[3,2,1])
     qc.x(2)
 
     qc.x(3)
-    ccry = RYGate(angles[4]).control(2)
+    ccry = RYGate(angles[4]).control(2)#.decompose()
     qc.append(ccry,[3,2,1])
-    ccry = RYGate(angles[3]).control(2)
+    ccry = RYGate(angles[3]).control(2)#.decompose()
     qc.x(2)
     qc.append(ccry,[3,2,1])
     qc.x(2)
@@ -301,12 +301,19 @@ def prepare_angles(input_data):
     return theta
 
 
+from qiskit import transpile
+
+
 def gqhan():
     qc = amplitude_encoding()
+    qc = transpile(qc, basis_gates=['u3', 'cx'])
     qc.barrier()
     qc = flexible_oracle(qc)
+    qc.barrier()
     qc = adaptive_diffusion(qc)
     return qc
+
+
 
 
 def ansatz(num_qubits = 4):

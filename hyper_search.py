@@ -60,7 +60,7 @@ class Random_Search():
     
     def callback_graph(self, weights, obj_func_eval):
         self.training_iteration += 1
-        print(f"Iterazione {self.training_iteration}: {obj_func_eval}")
+        print(f"Iteration {self.training_iteration}: {obj_func_eval}")
 
     def calculate_score_function(self, hyper):
         self.classifier.initial_point = hyper
