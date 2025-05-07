@@ -28,9 +28,13 @@ def PCA_data(save_path='./Data/pca_Fashion.npz'):
     
 
     print('preprocessing data ...')
-    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
-    train_dataset = datasets.FashionMNIST(root='./data', train=True, download=False, transform=transform)
-    test_dataset = datasets.FashionMNIST(root='./data', train=False, download=False, transform=transform)
+    #transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
+    #transform = transforms.Compose([transforms.ToTensor()])
+    #train_dataset = datasets.FashionMNIST(root='./data', train=True, download=False, transform=transform)
+    #test_dataset = datasets.FashionMNIST(root='./data', train=False, download=False, transform=transform)  
+
+    train_dataset = datasets.FashionMNIST(root='./data', train=True, download=False)
+    test_dataset  = datasets.FashionMNIST(root='./data', train=False, download=False)
 
     train_dataset_filtered = [(img, label) for img, label in train_dataset if label == 0 or label == 1]
     test_dataset_filtered = [(img, label) for img, label in test_dataset if label == 0 or label == 1]
@@ -43,11 +47,13 @@ def PCA_data(save_path='./Data/pca_Fashion.npz'):
     count_0, count_1 = 0, 0
     for img, label in train_dataset_filtered:
         if count_0 < 500 and label == 0:
-            train_images.append(img.view(-1).numpy())
+            #train_images.append(img.view(-1).numpy())
+            train_images.append(np.array(img).flatten())
             train_labels.append(label)
             count_0 += 1
         elif count_1 < 500 and label == 1:
-            train_images.append(img.view(-1).numpy())
+            #train_images.append(img.view(-1).numpy())
+            train_images.append(np.array(img).flatten())
             train_labels.append(label)
             count_1 += 1
 
@@ -58,11 +64,13 @@ def PCA_data(save_path='./Data/pca_Fashion.npz'):
     count_0, count_1 = 0, 0
     for img, label in test_dataset_filtered:
         if count_0 < 100 and label == 0:
-            test_images.append(img.view(-1).numpy())
+            #test_images.append(img.view(-1).numpy())
+            test_images.append(np.array(img).flatten())
             test_labels.append(label)
             count_0 += 1
         elif count_1 < 100 and label == 1:
-            test_images.append(img.view(-1).numpy())
+            #test_images.append(img.view(-1).numpy())
+            test_images.append(np.array(img).flatten())
             test_labels.append(label)
             count_1 += 1
 
@@ -82,15 +90,21 @@ def PCA_data(save_path='./Data/pca_Fashion.npz'):
 
     ##IMPORTANT TO USE PCA
     scaler = StandardScaler()
-    train_images_scaled = scaler.fit_transform(train_images)
-    test_images_scaled = scaler.transform(test_images)
+    #train_images_scaled = scaler.fit_transform(train_images)
+    #test_images_scaled = scaler.transform(test_images)    
 
     pca = PCA(n_components=8)
-    train_images_pca = pca.fit_transform(train_images_scaled)
-    test_images_pca = pca.transform(test_images_scaled)
+    #train_images_pca = pca.fit_transform(train_images_scaled)
+    #test_images_pca = pca.transform(test_images_scaled)
     
-    train_images_pca = train_images_pca.astype(np.float64) #NECESSARY TO USE QUANTUM ENCODING
-    test_images_pca  = test_images_pca.astype(np.float64)  #NECESSARY TO USE QUANTUM ENCODING
+    train_images_pca1 = pca.fit_transform(train_images)
+    test_images_pca1 = pca.transform(test_images)
+    
+    train_images_pca = scaler.fit_transform(train_images_pca1)
+    test_images_pca = scaler.transform(test_images_pca1)
+    
+    #train_images_pca = train_images_pca.astype(np.float64) #NECESSARY TO USE QUANTUM ENCODING
+    #test_images_pca  = test_images_pca.astype(np.float64)  #NECESSARY TO USE QUANTUM ENCODING
 
     print(train_images_pca.shape)  #(1000,8)
     print(test_images_pca.shape)   #(100,8)
