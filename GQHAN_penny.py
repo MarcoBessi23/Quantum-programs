@@ -1,7 +1,15 @@
 import pennylane as qml
 from pennylane import numpy as np
-from data_preprocessing import PCA_data
 import matplotlib.pyplot as plt
+from sklearn.datasets import fetch_openml
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+from sklearn.utils import shuffle
+import pandas as pd
+
+
+
+
 
 dev = qml.device('default.qubit', wires = 4)
 
@@ -98,12 +106,12 @@ def accuracy_measure(labels, predictions):
 steps = 120
 learning_rate = 0.09
 batch_size = 30
+num_params = 14
 
-
-def circuit_training(X_train, Y_train, X_test, Y_test, num_params):
+def circuit_training(X_train, Y_train, X_test, Y_test):
 
     params = np.pi * np.random.randn(num_params, requires_grad=True)
-    opt = qml.NesterovMomentumOptimizer(stepsize=learning_rate, momentum = 0.9)
+    opt = qml.NesterovMomentumOptimizer(stepsize=learning_rate)
     loss_history = []
 
     for it in range(steps):
@@ -120,26 +128,22 @@ def circuit_training(X_train, Y_train, X_test, Y_test, num_params):
             loss_history.append(cost_new)
             predictions_train = [np.sign(circuit(x, params)) for x in X_train]
             predictions = [np.sign(circuit(x, params)) for x in X_test]
+            print('previsioni del modello')
+            print(predictions)
+            print('y_test')
+            print(Y_test)
             accuracy_train = accuracy_measure(Y_train, predictions_train)
+
             accuracy = accuracy_measure(Y_test, predictions)
             print("iteration: ", it, " cost: ", cost_new, "train accuracy: ", str(accuracy_train), "test accuracy: ", str(accuracy))
 
     return loss_history, params
 
-#train_images_pca, test_images_pca, train_labels, test_labels = PCA_data()
-#train_labels[train_labels == 0] = -1
-#test_labels[test_labels == 0] = -1
-
-from sklearn.datasets import fetch_openml
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
-from sklearn.utils import shuffle
-import pandas as pd
 
 n_samples = 550 
 n_test_samples = 50
 n_features = 8  
-dataset = 'Fashion'
+dataset = 'MNIST'
 
 
 if dataset == 'Fashion':
@@ -186,7 +190,11 @@ elif dataset == 'MNIST':
 
     y_0 = y_0.to_numpy(dtype=np.int_)
     y_0 = y_0-1
+    print('vettore di y0')
+    print(y_0)
     y_1 = y_1.to_numpy(dtype=np.int_)
+    print('vettore di y1')
+    print(y_1)
 
     X_train = np.concatenate((X_0[:n_samples-n_test_samples],X_1[:n_samples-n_test_samples]))
     y_train = np.concatenate((y_0[:n_samples-n_test_samples],y_1[:n_samples-n_test_samples]))
@@ -203,26 +211,21 @@ elif dataset == 'MNIST':
     X_test = scaler.fit_transform(X_test)
 
 
-loss_history, params = circuit_training(X_train, y_train, X_test, y_test, num_params=14)
+loss_history, params = circuit_training(X_train, y_train, X_test, y_test)
+pred_final = [np.sign(circuit(x, params)) for x in X_test]
+print('Test Accuracy finale')
+print(accuracy_measure(labels = y_test, predictions = pred_final))
 
 
+##############################################################################################################
+                            # TEST MODEL CORRECTENESS #
+##############################################################################################################
 
+#Proof that the matrix corresponds to unitary matrix 16x16 with [ID, lambda(b)] 
 
-
-
-
-
-
-
-
-
-
-
-# Proof that the matrix corresponds to unitary matrix 16x16 with [ID, lambda(b)] 
-#
 #@qml.qnode(dev)
 #def circuit():
-#    controlled_000()
+#    controlled_001()
 #    return qml.state()
 #
 #unitary = qml.matrix(circuit)()
@@ -241,4 +244,3 @@ loss_history, params = circuit_training(X_train, y_train, X_test, y_test, num_pa
 #psi_test = np.random.uniform(0, 2*np.pi, 6)
 #qml.draw_mpl(circuit)(psi_test)
 #plt.show()
-#
