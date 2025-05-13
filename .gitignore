@@ -4,3 +4,5 @@ Data/
 parametershift.py
 train_schratch.py
 __pycache__/
+QKSAN.py
+QuantumAttention_proj.md

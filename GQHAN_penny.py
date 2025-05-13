@@ -10,16 +10,32 @@ import pandas as pd
 
 
 
-
+n_layers = 7
 dev = qml.device('default.qubit', wires = 4)
 
-def amplitude(f):
-    qml.AmplitudeEmbedding(features=f, wires=[1,2,3], normalize=True)
 
 def make_controlled_flip(bitstring):
-    def circuit():
+    def controlled_circuit():
         qml.ctrl(lambda: qml.FlipSign(bitstring, wires=[1,2,3]), control=[0])()
-    return circuit
+    return controlled_circuit
+
+
+
+
+#def make_controlled_flip(bitstring):
+#    def controlled_circuit():
+#
+#        for i, bit in enumerate(bitstring):
+#            if bit == '0':
+#                qml.PauliX(wires=i+1)
+#        qml.Hadamard(3)
+#        qml.MultiControlledX(wires=[0,1,2,3])
+#        qml.Hadamard(3)
+#        for i, bit in enumerate(bitstring):
+#            if bit == '0':
+#                qml.PauliX(wires=i+1)
+#    return controlled_circuit
+
 
 controlled_000 = make_controlled_flip([0,0,0])
 controlled_001 = make_controlled_flip([0,0,1])
@@ -58,10 +74,10 @@ def diffusion_operator(psi):
     qml.CRY(phi=psi[1], wires = [2,3])
     qml.CRY(phi=psi[2], wires = [3,1])
     
-    #qml.Hadamard(wires= [3])
-    #qml.Toffoli(wires= [1,2,3])
-    #qml.Hadamard(wires= [3])
-    qml.CCZ(wires = [1,2,3])
+    qml.Hadamard(wires= [3])
+    qml.Toffoli(wires= [1,2,3])
+    qml.Hadamard(wires= [3])
+    #qml.CCZ(wires = [1,2,3])
 
     qml.CRY(phi=psi[3], wires = [3,1])
     qml.CRY(phi=psi[4], wires = [2,3])
@@ -76,8 +92,9 @@ def diffusion_operator(psi):
 def GQHAN(feature, params):
 
     qml.AmplitudeEmbedding(features=feature, wires=[1,2,3], normalize=True)
-    flexible_oracle(params[:8])
-    diffusion_operator(params[8:])
+    for layer in range(n_layers):
+        flexible_oracle(params[:8])
+        diffusion_operator(params[8:])
     
     return qml.expval(qml.PauliZ(3))
 
@@ -143,7 +160,7 @@ def circuit_training(X_train, Y_train, X_test, Y_test):
 n_samples = 550 
 n_test_samples = 50
 n_features = 8  
-dataset = 'MNIST'
+dataset = 'Fashion'
 
 
 if dataset == 'Fashion':
@@ -177,6 +194,7 @@ if dataset == 'Fashion':
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)
 elif dataset == 'MNIST':
+
     mnist = fetch_openml('mnist_784')
 
     pca = PCA(n_components=n_features)
@@ -211,10 +229,10 @@ elif dataset == 'MNIST':
     X_test = scaler.fit_transform(X_test)
 
 
-loss_history, params = circuit_training(X_train, y_train, X_test, y_test)
-pred_final = [np.sign(circuit(x, params)) for x in X_test]
-print('Test Accuracy finale')
-print(accuracy_measure(labels = y_test, predictions = pred_final))
+#loss_history, params = circuit_training(X_train, y_train, X_test, y_test)
+#pred_final = [np.sign(circuit(x, params)) for x in X_test]
+#print('Test Accuracy finale')
+#print(accuracy_measure(labels = y_test, predictions = pred_final))
 
 
 ##############################################################################################################
@@ -225,7 +243,7 @@ print(accuracy_measure(labels = y_test, predictions = pred_final))
 
 #@qml.qnode(dev)
 #def circuit():
-#    controlled_001()
+#    controlled_011()
 #    return qml.state()
 #
 #unitary = qml.matrix(circuit)()
@@ -234,13 +252,36 @@ print(accuracy_measure(labels = y_test, predictions = pred_final))
 #    np.set_printoptions(precision=1, suppress=True)
 #    print(np.real(U))
 #
+#def plot_unitary(U, filename="results/unitary_matrix.png"):
+#    plt.figure(figsize=(6, 6))
+#    plt.imshow(np.real(U), cmap="viridis", interpolation="nearest")
+#    plt.colorbar(label="Values")
+#    plt.title("Unitary Matrix of 011")
+#    #plt.xlabel("raw")
+#    #plt.ylabel("column")
+#    plt.tight_layout()
+#    plt.savefig(filename)
+#    plt.close()
+#
+##plot_unitary(unitary)
 #print_unitary(unitary)
 
-#Proof that circuit corresponds to diffusion operator of GQHAN paper
-#@qml.qnode(dev)
-#def circuit(psi):
-#    diffusion_operator(psi)
-#    return qml.state()
-#psi_test = np.random.uniform(0, 2*np.pi, 6)
-#qml.draw_mpl(circuit)(psi_test)
-#plt.show()
+#def save_table_matrix(U, filename="results/unitary_table.png"):
+#    U_int = np.real(U).astype(int)
+#    fig, ax = plt.subplots()
+#    ax.axis('off')
+#    table = ax.table(cellText=U_int, loc='center', cellLoc='center')
+#    table.scale(1.2, 1.2)
+#    plt.savefig(filename, dpi=300, bbox_inches='tight')
+#    plt.close()
+#
+#save_table_matrix(unitary)
+
+#Circuit corresponds to diffusion operator of GQHAN paper
+@qml.qnode(dev)
+def circuit(psi):
+    diffusion_operator(psi)
+    return qml.state()
+psi_test = np.random.uniform(0, 2*np.pi, 6)
+qml.draw_mpl(circuit)(psi_test)
+plt.savefig('results/circuit_diffuser')
