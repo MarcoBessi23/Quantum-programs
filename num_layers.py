@@ -1,105 +1,46 @@
 import pennylane as qml
 from pennylane import numpy as np
+from Pennylane_QNN import flexible_oracle, diffusion_operator
 import matplotlib.pyplot as plt
 from sklearn.datasets import fetch_openml
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import shuffle
-import pandas as pd
+import argparse
+
+parser = argparse.ArgumentParser(description="Quantum circuit training")
+parser.add_argument('--layers', type=int, default=7, help="Number of layers in the circuit")
+args = parser.parse_args()
+
+num_layers = args.layers
+print(num_layers)
+steps = 120
+learning_rate = 0.09
+batch_size = 30
+num_params = 14
+n_samples = 550 
+n_test_samples = 50
+n_features = 8  
+dataset = 'Fashion'
 
 
 
-
-n_layers = 7
 dev = qml.device('default.qubit', wires = 4)
 
 
-def make_controlled_flip(bitstring):
-    def controlled_circuit():
-        qml.ctrl(lambda: qml.FlipSign(bitstring, wires=[1,2,3]), control=[0])()
-    return controlled_circuit
-
-
-
-
-#def make_controlled_flip(bitstring):
-#    def controlled_circuit():
-#
-#        for i, bit in enumerate(bitstring):
-#            if bit == '0':
-#                qml.PauliX(wires=i+1)
-#        qml.Hadamard(3)
-#        qml.MultiControlledX(wires=[0,1,2,3])
-#        qml.Hadamard(3)
-#        for i, bit in enumerate(bitstring):
-#            if bit == '0':
-#                qml.PauliX(wires=i+1)
-#    return controlled_circuit
-
-
-controlled_000 = make_controlled_flip([0,0,0])
-controlled_001 = make_controlled_flip([0,0,1])
-controlled_010 = make_controlled_flip([0,1,0])
-controlled_011 = make_controlled_flip([0,1,1])
-controlled_100 = make_controlled_flip([1,0,0])
-controlled_101 = make_controlled_flip([1,0,1])
-controlled_110 = make_controlled_flip([1,1,0])
-controlled_111 = make_controlled_flip([1,1,1])
-
-controlled_dict = {
-    "000": controlled_000,
-    "001": controlled_001,
-    "010": controlled_010,
-    "011": controlled_011,
-    "100": controlled_100,
-    "101": controlled_101,
-    "110": controlled_110,
-    "111": controlled_111,
-}
-
-def flexible_oracle(theta):
-    keys = list(controlled_dict.keys())
-    for i in range(8):
-        qml.RX(theta[i], wires=[0])
-        controlled_dict[keys[i]]()
-        qml.RX(-theta[i], wires=[0])
-
-
-def diffusion_operator(psi):
-    qml.Hadamard(wires = [1])
-    qml.Hadamard(wires = [2])
-    qml.Hadamard(wires = [3])
-    
-    qml.CRY(phi=psi[0], wires = [1,2])
-    qml.CRY(phi=psi[1], wires = [2,3])
-    qml.CRY(phi=psi[2], wires = [3,1])
-    
-    qml.Hadamard(wires= [3])
-    qml.Toffoli(wires= [1,2,3])
-    qml.Hadamard(wires= [3])
-    #qml.CCZ(wires = [1,2,3])
-
-    qml.CRY(phi=psi[3], wires = [3,1])
-    qml.CRY(phi=psi[4], wires = [2,3])
-    qml.CRY(phi=psi[5], wires = [1,2])
-
-    qml.Hadamard(wires = [1])
-    qml.Hadamard(wires = [2])
-    qml.Hadamard(wires = [3])
-
-
 @qml.qnode(dev)
-def GQHAN(feature, params):
+def circuit(feature, params):
 
     qml.AmplitudeEmbedding(features=feature, wires=[1,2,3], normalize=True)
-    for layer in range(n_layers):
+    for layer in range(num_layers):
         flexible_oracle(params[:8])
         diffusion_operator(params[8:])
     
     return qml.expval(qml.PauliZ(3))
 
 
-circuit = GQHAN
+
+
 
 def loss_fn(labels, predictions):
     loss = 0
@@ -120,10 +61,8 @@ def accuracy_measure(labels, predictions):
 
     return loss
 
-steps = 120
-learning_rate = 0.09
-batch_size = 30
-num_params = 14
+
+
 
 def circuit_training(X_train, Y_train, X_test, Y_test):
     
@@ -167,23 +106,17 @@ def circuit_training(X_train, Y_train, X_test, Y_test):
     plt.ylabel('Accuracy')
     plt.title('Train vs Test Accuracy')
     plt.legend()
-    plt.savefig('results/trainVStestAcc.png')
+    plt.savefig(f'results/Accuracy_num_layers{num_layers}.png')
     plt.close()
 
     plt.plot(training_step, loss_history, color='green', label='Loss')
     plt.xlabel('Iterations')
     plt.ylabel('Training Loss')
     plt.title('Train Loss')
-    plt.savefig('results/training_loss_pennylane.png')
+    plt.savefig(f'results/training_loss{num_layers}.png')
     plt.close()
 
     return loss_history, params
-
-
-n_samples = 550 
-n_test_samples = 50
-n_features = 8  
-dataset = 'Fashion'
 
 
 if dataset == 'Fashion':
@@ -252,72 +185,13 @@ elif dataset == 'MNIST':
     X_test = scaler.fit_transform(X_test)
 
 
-loss_history, params = circuit_training(X_train, y_train, X_test, y_test)
-pred_final = [np.sign(circuit(x, params)) for x in X_test]
-print('Test Accuracy finale')
-print(accuracy_measure(labels = y_test, predictions = pred_final))
 
 
-##############################################################################################################
-                            # TEST MODEL CORRECTENESS #
-##############################################################################################################
+if __name__ == "__main__":
 
-#Proof that the matrix corresponds to unitary matrix 16x16 with [ID, lambda(b)] 
 
-#@qml.qnode(dev)
-#def circuit():
-#    controlled_011()
-#    return qml.state()
-#
-#unitary = qml.matrix(circuit)()
-#print(unitary)
-#def print_unitary(U):
-#    np.set_printoptions(precision=1, suppress=True)
-#    print(np.real(U))
-#
-#def plot_unitary(U, filename="results/unitary_matrix.png"):
-#    plt.figure(figsize=(6, 6))
-#    plt.imshow(np.real(U), cmap="viridis", interpolation="nearest")
-#    plt.colorbar(label="Values")
-#    plt.title("Unitary Matrix of 011")
-#    #plt.xlabel("raw")
-#    #plt.ylabel("column")
-#    plt.tight_layout()
-#    plt.savefig(filename)
-#    plt.close()
-#
-##plot_unitary(unitary)
-#print_unitary(unitary)
+    loss_history, params = circuit_training(X_train, y_train, X_test, y_test)
+    pred_final = [np.sign(circuit(x, params)) for x in X_test]
+    print('Test Accuracy finale')
+    print(accuracy_measure(labels = y_test, predictions = pred_final))
 
-#def save_table_matrix(U, filename="results/unitary_table.png"):
-#    U_int = np.real(U).astype(int)
-#    fig, ax = plt.subplots()
-#    ax.axis('off')
-#    table = ax.table(cellText=U_int, loc='center', cellLoc='center')
-#    table.scale(1.2, 1.2)
-#    plt.savefig(filename, dpi=300, bbox_inches='tight')
-#    plt.close()
-#
-#save_table_matrix(unitary)
-
-#Circuit corresponds to diffusion operator of GQHAN paper
-#@qml.qnode(dev)
-#def circuit(psi):
-#    diffusion_operator(psi)
-#    return qml.state()
-#psi_test = np.random.uniform(0, 2*np.pi, 6)
-#qml.draw_mpl(circuit)(psi_test)
-#plt.savefig('results/circuit_diffuser')
-
-#def save_image(X, label, index=5):
-#    
-#    img = X.iloc[index].to_numpy().reshape(28, 28)
-#    plt.imshow(img, cmap="gray")
-#    plt.axis("off")
-#    plt.title(f"Class: {label}")
-#    plt.savefig(f"results/image{label}.png", bbox_inches='tight')
-#    plt.close()
-#
-#
-#save_image(X_0, label = 0, index = 5)
-#save_image(X_1, label = 1, index = 5)
