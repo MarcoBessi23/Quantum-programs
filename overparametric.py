@@ -9,18 +9,18 @@ from sklearn.utils import shuffle
 import argparse
 
 parser = argparse.ArgumentParser(description="Quantum circuit training")
-parser.add_argument('--batch_size', type=int, default=30, help="Size of the training batch")
-parser.add_argument('--learning_rate', type=float, default=0.09, help="Learning rate for the optimizer")
+parser.add_argument('--layers', type=int, default=7, help="Number of layers in the circuit")
 args = parser.parse_args()
 
-num_layers = 1
+num_layers = args.layers
+print(num_layers)
 steps = 120
-batch_size = args.batch_size
-learning_rate = args.learning_rate
-num_params = 14
+learning_rate = 0.09
+batch_size = 30
+num_params = 14*num_layers
 n_samples = 550 
 n_test_samples = 50
-n_features = 8  
+n_features = 8
 dataset = 'Fashion'
 
 
@@ -31,10 +31,10 @@ dev = qml.device('default.qubit', wires = 4)
 @qml.qnode(dev)
 def circuit(feature, params):
 
-    qml.AmplitudeEmbedding(features=feature, wires=[1,2,3], normalize=True, pad_with= None)
+    qml.AmplitudeEmbedding(features=feature, wires=[1,2,3], normalize=True)
     for layer in range(num_layers):
-        flexible_oracle(params[:8])
-        diffusion_operator(params[8:])
+        flexible_oracle(params[14*layer:14*layer + 8])
+        diffusion_operator(params[14*layer + 8: 14*layer + 14])
     
     return qml.expval(qml.PauliZ(3))
 
@@ -98,22 +98,22 @@ def circuit_training(X_train, Y_train, X_test, Y_test):
             accuracy_test = accuracy_measure(Y_test, predictions)
             acc_test_history.append(accuracy_test)
             training_step.append(it)
-            print("iteration: ", it, " cost: ", cost_new,"train accuracy: ", str(accuracy_train),  "test accuracy: ", str(accuracy_test))
-            
+            print("iteration: ", it, " cost: ", cost_new, "train accuracy: ", str(accuracy_train), "test accuracy: ", str(accuracy_test))
+
     plt.plot(training_step, acc_train_history, color='blue', label='Train Accuracy')
     plt.plot(training_step, acc_test_history, color='red', label='Test Accuracy')
     plt.xlabel('Iterations')
     plt.ylabel('Accuracy')
     plt.title('Train vs Test Accuracy')
     plt.legend()
-    plt.savefig(f'results/Accuracy_batch{batch_size}_lr{learning_rate}.png')
+    plt.savefig(f'results/Accuracy_overparametrized2.png')
     plt.close()
 
     plt.plot(training_step, loss_history, color='green', label='Loss')
     plt.xlabel('Iterations')
     plt.ylabel('Training Loss')
     plt.title('Train Loss')
-    plt.savefig(f'results/training_loss_batch{batch_size}_lr{learning_rate}.png')
+    plt.savefig(f'results/training_loss_overparametrized2.png')
     plt.close()
 
     return loss_history, params
@@ -130,7 +130,11 @@ if dataset == 'Fashion':
     y_1 = fashion_mnist.target[(fashion_mnist.target == '1')].sample(n=n_samples, random_state=1)
 
     X_0 = fashion_mnist.data.iloc[y_0.index]
+    print(X_0.iloc[5].to_numpy())
+    X_0 = X_0/255
+    print(X_0.iloc[5].to_numpy())
     X_1 = fashion_mnist.data.iloc[y_1.index]
+    X_1 = X_1/255 
 
     y_0 = y_0.to_numpy(dtype=np.int_)
     y_0 = y_0 - 1
@@ -139,10 +143,15 @@ if dataset == 'Fashion':
     X_train = np.concatenate((X_0[:n_samples-n_test_samples], X_1[:n_samples-n_test_samples]))
     y_train = np.concatenate((y_0[:n_samples-n_test_samples], y_1[:n_samples-n_test_samples]))
     X_train, y_train = shuffle(X_train, y_train, random_state=1)
-
+    X_mean = X_train.mean(axis = 0)
+    X_train = X_train-X_mean
+    
     X_test = np.concatenate((X_0[-n_test_samples:], X_1[-n_test_samples:]))
     y_test = np.concatenate((y_0[-n_test_samples:], y_1[-n_test_samples:]))
     X_test, y_test = shuffle(X_test, y_test, random_state=1)
+    X_test = X_test-X_mean
+
+
 
     X_train = pca.fit_transform(X_train)
     X_test = pca.transform(X_test)
@@ -185,13 +194,11 @@ elif dataset == 'MNIST':
     X_test = scaler.fit_transform(X_test)
 
 
-
-
-if __name__ == "__main__":
-
-
-    loss_history, params = circuit_training(X_train, y_train, X_test, y_test)
-    pred_final = [np.sign(circuit(x, params)) for x in X_test]
-    print('Test Accuracy finale')
-    print(accuracy_measure(labels = y_test, predictions = pred_final))
+#if __name__ == "__main__":
+#
+#
+#    loss_history, params = circuit_training(X_train, y_train, X_test, y_test)
+#    pred_final = [np.sign(circuit(x, params)) for x in X_test]
+#    print('Test Accuracy finale')
+#    print(accuracy_measure(labels = y_test, predictions = pred_final))
 
