@@ -128,8 +128,8 @@ num_params = 14
 def circuit_training(X_train, Y_train, X_test, Y_test):
     
     np.random.seed(42) 
-    #params = np.pi * np.random.randn(num_params, requires_grad=True)
-    params = 0.01 * np.random.randn(num_params, requires_grad=True)
+    params = np.random.uniform(low=-np.pi, high= np.pi, size=(num_params),requires_grad=True)
+    #params = 0.01 * np.random.randn(num_params, requires_grad=True)
     opt = qml.NesterovMomentumOptimizer(stepsize=learning_rate)
     loss_history = []
     acc_test_history = []
@@ -167,20 +167,20 @@ def circuit_training(X_train, Y_train, X_test, Y_test):
     plt.ylabel('Accuracy')
     plt.title('Train vs Test Accuracy')
     plt.legend()
-    plt.savefig('results/trainVStestAcc.png')
+    plt.savefig('results/trainVStestAcc2.png')
     plt.close()
 
     plt.plot(training_step, loss_history, color='green', label='Loss')
     plt.xlabel('Iterations')
     plt.ylabel('Training Loss')
     plt.title('Train Loss')
-    plt.savefig('results/training_loss_pennylane.png')
+    plt.savefig('results/training_loss_pennylane2.png')
     plt.close()
 
     return loss_history, params
 
 
-n_samples = 550 
+n_samples = 550
 n_test_samples = 50
 n_features = 8  
 dataset = 'Fashion'
