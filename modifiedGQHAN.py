@@ -27,14 +27,14 @@ variation = args.variation
 dev = qml.device('default.qubit', wires = 4)
 
 
-if variation == 'one_parameter':
+if variation == 'one_parameter_diffusion':
 
     num_params = 9
     @qml.qnode(dev)
     def circuit(feature, params):
 
         qml.AmplitudeEmbedding(features=feature, wires=[1,2,3], normalize=True)
-        for layer in range(num_layers):
+        for _ in range(num_layers):
             flexible_oracle(params[:8])
             diffusion_less_parameters(psi= params[8])
 
@@ -45,7 +45,7 @@ elif variation == 'Rx_rotation':
     def circuit(feature, params):
 
         qml.AmplitudeEmbedding(features=feature, wires=[1,2,3], normalize=True)
-        for layer in range(num_layers):
+        for _ in range(num_layers):
             flexible_oracle(params[:8])
             diffusion_RX(psi= params[8:])
 
@@ -59,7 +59,7 @@ elif variation == 'my_diffusion':
     def circuit(feature, params):
 
         qml.AmplitudeEmbedding(features=feature, wires=[1,2,3], normalize=True)
-        for layer in range(num_layers):
+        for _ in range(num_layers):
             flexible_oracle(params[:8])
             diffusion_block(params[8:])
 

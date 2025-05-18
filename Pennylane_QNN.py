@@ -144,3 +144,15 @@ def diffusion_block(psi):
     qml.Hadamard(wires = [1])
     qml.Hadamard(wires = [2])
     qml.Hadamard(wires = [3])
+
+#VISUALIZING DIFFUSION RX
+
+#import matplotlib.pyplot as plt
+#dev = qml.device('default.qubit', wires = 4)
+#@qml.qnode(dev)
+#def circuit(psi):
+#    diffusion_RX(psi)
+#    return qml.state()
+#psi_test = np.random.uniform(0, 2*np.pi, 6)
+#qml.draw_mpl(circuit)(psi_test)
+#plt.savefig('results/circuit_diffuser_RX')

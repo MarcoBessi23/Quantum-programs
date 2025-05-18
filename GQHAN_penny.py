@@ -11,6 +11,17 @@ import pandas as pd
 
 
 n_layers = 7
+steps = 120
+learning_rate = 0.09
+batch_size = 30
+num_params = 14
+n_samples = 550
+n_test_samples = 50
+n_features = 8  
+dataset = 'Fashion'
+
+
+
 dev = qml.device('default.qubit', wires = 4)
 
 
@@ -98,7 +109,6 @@ def GQHAN(feature, params):
     
     return qml.expval(qml.PauliZ(3))
 
-
 circuit = GQHAN
 
 def loss_fn(labels, predictions):
@@ -120,10 +130,6 @@ def accuracy_measure(labels, predictions):
 
     return loss
 
-steps = 120
-learning_rate = 0.09
-batch_size = 30
-num_params = 14
 
 def circuit_training(X_train, Y_train, X_test, Y_test):
     
@@ -141,7 +147,7 @@ def circuit_training(X_train, Y_train, X_test, Y_test):
         batch_index = np.random.randint(0, len(X_train), (batch_size,))
         X_batch = X_train[batch_index]
         Y_batch = Y_train[batch_index]
-        Y_batch = Y_batch.astype(np.float32)
+        Y_batch = Y_batch.astype(np.float64)
 
         params, _, _ = opt.step(cost, params, X_batch, Y_batch)
 
@@ -167,23 +173,18 @@ def circuit_training(X_train, Y_train, X_test, Y_test):
     plt.ylabel('Accuracy')
     plt.title('Train vs Test Accuracy')
     plt.legend()
-    plt.savefig('results/trainVStestAcc2.png')
+    plt.savefig('results/trainVStestAcc4.png')
     plt.close()
 
     plt.plot(training_step, loss_history, color='green', label='Loss')
     plt.xlabel('Iterations')
     plt.ylabel('Training Loss')
     plt.title('Train Loss')
-    plt.savefig('results/training_loss_pennylane2.png')
+    plt.savefig('results/training_loss_pennylane4.png')
     plt.close()
 
     return loss_history, params
 
-
-n_samples = 550
-n_test_samples = 50
-n_features = 8  
-dataset = 'Fashion'
 
 
 if dataset == 'Fashion':
@@ -230,7 +231,7 @@ elif dataset == 'MNIST':
     X_1 = mnist.data.iloc[y_1]
 
     y_0 = y_0.to_numpy(dtype=np.int_)
-    y_0 = y_0-1
+    y_0 = y_0 - 1
     print('vettore di y0')
     print(y_0)
     y_1 = y_1.to_numpy(dtype=np.int_)
