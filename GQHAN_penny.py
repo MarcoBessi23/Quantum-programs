@@ -6,9 +6,12 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import shuffle
 import pandas as pd
+import argparse
 
 
-
+parser = argparse.ArgumentParser(description="Quantum circuit training")
+parser.add_argument('--initialization', type=str, default='standard', help="Type of initialization")
+args = parser.parse_args()
 
 n_layers = 7
 steps = 120
@@ -19,7 +22,7 @@ n_samples = 550
 n_test_samples = 50
 n_features = 8  
 dataset = 'Fashion'
-
+initialization = args.initialization
 
 
 dev = qml.device('default.qubit', wires = 4)
@@ -131,11 +134,14 @@ def accuracy_measure(labels, predictions):
     return loss
 
 
+
 def circuit_training(X_train, Y_train, X_test, Y_test):
     
     np.random.seed(42) 
-    params = np.random.uniform(low=-np.pi, high= np.pi, size=(num_params),requires_grad=True)
-    #params = 0.01 * np.random.randn(num_params, requires_grad=True)
+    if initialization == 'standard':
+        params = 0.01 * np.random.randn(num_params, requires_grad=True)
+    elif initialization == 'uniform':
+        params = np.random.uniform(low=-np.pi, high= np.pi, size=(num_params),requires_grad=True)
     opt = qml.NesterovMomentumOptimizer(stepsize=learning_rate)
     loss_history = []
     acc_test_history = []
@@ -156,10 +162,6 @@ def circuit_training(X_train, Y_train, X_test, Y_test):
             loss_history.append(cost_new)
             predictions_train = [np.sign(circuit(x, params)) for x in X_train]
             predictions = [np.sign(circuit(x, params)) for x in X_test]
-            print('previsioni del modello')
-            print(predictions)
-            print('y_test')
-            print(Y_test)
             accuracy_train = accuracy_measure(Y_train, predictions_train)
             acc_train_history.append(accuracy_train)
             accuracy_test = accuracy_measure(Y_test, predictions)
@@ -173,14 +175,14 @@ def circuit_training(X_train, Y_train, X_test, Y_test):
     plt.ylabel('Accuracy')
     plt.title('Train vs Test Accuracy')
     plt.legend()
-    plt.savefig('results/trainVStestAcc4.png')
+    plt.savefig(f'results/trainVStestAcc_{initialization}.png')
     plt.close()
 
     plt.plot(training_step, loss_history, color='green', label='Loss')
     plt.xlabel('Iterations')
     plt.ylabel('Training Loss')
     plt.title('Train Loss')
-    plt.savefig('results/training_loss_pennylane4.png')
+    plt.savefig(f'results/training_loss_{initialization}.png')
     plt.close()
 
     return loss_history, params

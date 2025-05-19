@@ -48,6 +48,7 @@ Below I include both the implementation code and the plot of the resulting quant
 ### Datasets
 <span style="font-size:20px">Two widely adopted benchmark datasets are used, Fashion MNIST and MNIST, both datasets consist of 70000 grayscale 28x28 images. 550 images with label 0 and 550 images with label 1 are selected from the dataset, then PCA is applied to reduce the dimensionality of each image to 8 features that are encoded on 3 qubits with amplitude embedding. Using PCA in this way severe image compression results in the loss of a significant amount of critical information, presenting challenges in image classification.
 <br>
+
 <pre> <code>
     fashion_mnist = fetch_openml('Fashion-MNIST', version=1, as_frame=True)
 
@@ -95,8 +96,8 @@ The model is trained for 120 iterations using Nesterov Gradient Descent, with a 
 <br><br>
 
 <p align="center">
-  <img src="results/training_loss_pennylane.png" width="45%" />
-  <img src="results/trainVStestAcc.png" width="45%" />
+  <img src="results/training_loss_standard.png" width="45%" />
+  <img src="results/trainVStestAcc_standard.png" width="45%" />
 </p>
 <span style="font-size:20px"> Training loss, training accuracy, and test accuracy were recorded every 10 iterations. After 120 training steps, the model achieved a test accuracy of 0.90 and a training accuracy of 0.93. These results differ significantly from those reported in the original paper, despite using the same configuration as proposed.
 In the following section, I present some of the results obtained by modifying the network and experimenting with different configurations of interest.
@@ -164,5 +165,15 @@ In the following section, I present some of the results obtained by modifying th
 </p>
 <br><br>
 
-These variants help analyze the model’s robustness parameters constraints and its capacity to generalize under reduced expressive power. In the first case I find interesting that similar results are obtained using only 4 feature instead of eight, suggesting that the data can be ulteriorly compressed without a significant loss in performance. In the second case to reach 0.9 accuracy requires more training steps, maybe because the reduced parameter space offers fewer local minima for the optimizer to exploit.
+<span style="font-size:20px">These variants help analyze the model’s robustness to parameters constraints and its capacity to generalize under reduced expressive power. In the first case I find interesting that similar results are obtained using only four feature instead of eight, suggesting that the data can be ulteriorly compressed without a significant loss in performance. In the second case reach 0.9 accuracy requires more training steps, maybe because the reduced parameter space offers fewer local minima for the optimizer to exploit.
 
+### Parameters initialization
+
+<span style="font-size:20px"> For all the experiments, I initialized the parameters using a common practice found in many other projects: sampling them from a standard normal distribution. However, I observed that initializing the parameters from a uniform distribution in the range [−π,π] significantly improves test set accuracy from 0.9 to 0.94.
+
+<br>
+<p align="center">
+  <img src="results/training_loss_uniform.png" width="45%" />
+  <img src="results/trainVStestAcc_uniform.png" width="45%" />
+</p>
+<br><br>
